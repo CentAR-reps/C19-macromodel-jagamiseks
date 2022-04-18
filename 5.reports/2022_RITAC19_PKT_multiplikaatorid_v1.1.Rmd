@@ -1,0 +1,1440 @@
+---
+title: |
+  ![](logod.png){width=12in}  
+  Pakkumise / kasutamise tabelid ja multiplikaatorid v1.1
+author: "CentAR"
+date: "10. jaanuar 2022"
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    theme: cosmo
+bibliography: references.bib
+---
+
+```{css caption-to-the-top, echo = FALSE}
+/* Makes figure caption behave like table caption and places is to the top*/ 
+div.figure {
+  display: table;
+  width:100%;
+}
+div.figure p {
+  display: table-caption;
+  caption-side: top;
+  width: 100%;
+}
+caption {
+  text-align: left !important;
+  color: #333333 !important;
+} 
+
+.math {
+  font-size: small;
+}
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+
+# Directories
+wd = dirname(getwd())
+script_loc <<- file.path(wd, "1.scripts")  
+data_loc <<- file.path(wd, "2.data")
+dict_loc <<- file.path(wd, "3.dictionaries")
+model_loc <<- file.path(wd, "6.model_modules")
+
+input_ex_loc <<- file.path(wd, "4.user_input_examples")
+test_loc <<- file.path(wd, "9.testground") 
+load(file.path(data_loc, "ibi_IO_elements.Rda"))
+
+# Scripts
+source(file.path(script_loc,"packages.R"), encoding = "UTF-8")
+source(file.path(script_loc,"IO_functions.R"), encoding = "UTF-8")
+source(file.path(script_loc,"support_functions.R"), encoding = "UTF-8")
+
+# Loeme sisse mudeli moodulid
+source(file.path(model_loc,"0.launch_the_model.R"), encoding = "UTF-8")
+source(file.path(model_loc,"1.input_data_domestic.R"), encoding = "UTF-8")
+source(file.path(model_loc,"2.impact_of_tax_change_on_prices.R"), encoding = "UTF-8")
+source(file.path(model_loc,"3.impact_of_price_change_on_final_demand.R"), encoding = "UTF-8")
+source(file.path(model_loc,"4.demand_side_impact_on_TP.R"), encoding = "UTF-8")
+source(file.path(model_loc,"5.supply_side_impact_on_TP.R"), encoding = "UTF-8")
+source(file.path(model_loc,"6.impact_on_VA_LC_PROF.R"), encoding = "UTF-8")
+source(file.path(model_loc,"8.impact_on_taxes.R"), encoding = "UTF-8")
+source(file.path(model_loc,"9.demand_side_impact_on_employment.R"), encoding = "UTF-8")
+
+
+# More convenient namest for sectors
+dict_baas = read_excel(file.path(dict_loc, "dictionaries.xlsx"))
+dict = unique(dict_baas$IO_lühike)
+
+# Set proper decimal operator
+options(OutDec= ",")
+
+# Set theme
+ggthemr('fresh')
+```
+
+# Metoodika
+
+## Pakkumise ja kasutamise tabelitest tegevusalapõhiste sisendväljundtabelini
+
+Sisendväljundraamistik leiab mõjuanalüüsides küllaltki sagedast kasutust, kuna see annab hea ülevaate toodete/teenuste (edaspidi viitame sõnastusliku mugavuse huvides toodetele/teenustele kui toodetele) ja majandustegevusalade (aga toodete ja toodete ning majandustegevusalade ja majandustegevusalade) omavahelisest seotusest. Sisendväljundraamistiku peamised elemendid on pakkumise ja kasutamise tabelid ning nende põhjal koostatud sisendväljundtabelid.
+
+Käesolevas töös pakuvad meile huvi eeskätt majandustegevusalade (edaspidi tegevusalade) omavahelised seosed. Muu hulgas otsime vastust küsimustele: "mis juhtub, kui lõpptarbimine mõne tegevusala toodete järgi suureneb või väheneb. Kuidas mõjutab see teisi majandustegevusalasid, hõivet, lisandväärtust, ettevõtete kasumeid? Vastamiseks vajame *tegevusala-tegevusala* sisendväljundtabelit.
+
+Statistikaamet avaldab praegu ainult *toode-toode* sisendväljundtabeleid (selle raporti koostamise hetkel oli viimane avaldatud tabel 2015. aasta kohta). Õnneks avaldab statistikaamet ka pakkumise ja kasutamise tabeleid. Pakkumise tabelid näitavad, milliseid tooteid erinevad tegevusalad toodavad, kasutamise tabelid aga seda, millised tooteid on tegevusaladel oma majandustegevuse teostamiseks sisendina tarvis. Pakkumise ja kasutamise tabelites olev info võimaldab soovijatel koostada oma *tegevusala-tegevusala* sisendväljundtabeli ning seda me ka plaanime teha.
+
+Pakkumise ja kasutamise tabelid ning nendest tuletatud sisendväljundtabelid on järgneva ülesehitusega (vt tabelit \@ref(tab:IO-frame)). Oluline on siinkohal silmas pidada, et joonisel on eristatakse kodumaist ning importnõudlust. See võimaldab omakorda eristada nii vahe kui lõpptarbimisest selle osa, mis rahuldatakse impordi toel ning keskenduda osale, mis toodetakse Eestis ja mis elavdab seeläbi Eesti majandust.
+
+```{r IO-frame, tab.cap="Sisendväljundraamistik", out.width = '80%'}
+dummy_df = data.frame(` ` = character())
+names(dummy_df) = c(" ")
+dummy_df = flextable(dummy_df) %>%
+  border_remove()
+dummy_df
+```
+
++-----------------+-------------+-------------+------------+------------+
+| PAKKUMISE TABEL | Tegevusalad | Kogutoodang | Import     | Pakkumine  |
++:================+:===========:+:===========:+:==========:+:==========:+
+| Tooted          | $V^T$       | $q-m$       | $m$        | $q$        |
++-----------------+-------------+-------------+------------+------------+
+| Kogutoodang     | $g^T$       |             |            |            |
++-----------------+-------------+-------------+------------+------------+
+
++------------------------------+------------+---------------+--------------+
+| KASUTAMISE TABEL (KODUMAINE) | Tegevusala | Lõpptarbimine | Kasutamine   |
++:=============================+:==========:+:=============:+:============:+
+| Kodumaised tooted            | $U_d$      | $Y_d$         | $q-m$        |
++------------------------------+------------+---------------+--------------+
+| Imporditud tooted            | $U_m$      | $Y_m$         | $m$          |
++------------------------------+------------+---------------+--------------+
+| Lisandväärtus                | $W$        |               | $w$          |
++------------------------------+------------+---------------+--------------+
+| Kogutoodang                  | $g^T$      | $y$           |              |
++------------------------------+------------+---------------+--------------+
+
++------------------------------------+------------+---------------+---------+
+| IO TABEL - TEGEVUSALA x TEGEVUSALA | Tegevusala | Lõpptarbimine | Toodang |
++:===================================+:==========:+:=============:+:=======:+
+| Kodumaised tegevusalad             | $B_d$      | $F_d$         | $g$     |
++------------------------------------+------------+---------------+---------+
+| Import välismaistelt tegevsaladelt | $B_m$      | $F_m$         | $m$     |
++------------------------------------+------------+---------------+---------+
+| Lisandväärtus                      | $W$        |               | $w$     |
++------------------------------------+------------+---------------+---------+
+| Kogutoodang                        | $g^T$      | $y$           |         |
++------------------------------------+------------+---------------+---------+
+
+kus
+
+$V^T$ - pakkumise maatriks (*toode-tegevusala*)
+
+$m$ - impordi tulbavektor (toodete lõikes)
+
+$q-m$ - kogutoodangu tulbavektor(toodete lõikes)
+
+$g$ - kogutoodangu vektor (tegevusala lõikes)
+
+$U$ - toodete vahetarbimise maatriks (*toode-tegevusala*)
+
+$Y$ - toodete lõpptarbimise maatriks (*toode-lõpptarbimise komponent*)
+
+$y$ - lõpptarbimise vektor
+
+$W$ - lisandväärtuse maatriks (*lisandväärtuse komponent-tegevusala*)
+
+$w$ - lisandväärtuse vektor
+
+$B$ - vahetarbimise maatriks (*tegevusala-tegevusala*)
+
+$F$ - lõpptarbimise maatriks(*tegevusala-lõpptarbimise komponent*)
+
+$_m$ - indeks tähistamaks importi
+
+$_d$ - indeks tähistamaks kodumaist toodet/tegevusala
+
+$^T$ - indeks tähistamaks seda, et maatriks/vektor on transponeeritud
+
+*Allikas: @eurostat2008, lk 353*
+
+*Tegevusala-tegevusala* sisendväljundtabeli koostamiseks on vaja teha mõningaid eeldusi selle kohta, kuidas käsitleda olukordi, kus tegevusalad toodavad tooteid, mis pole nende põhitooted (nt kui põllumajandus toodab mingil määral ka metsandustooteid või pakub majutust). Selle probleemi lahendamiseks soovitatakse (@eurostat2008, lk 316) kasutada "fikseeritud müügistruktuuri eeldust", mis tähendab, et nende toodete kohta, mis on toodetud väljapool nende "kodutegevusala" eeldatakse, et neid kasutatakse sarnases proportsiooni vahetarbimiseks ja lõpptarbimiseks kui selle toote "kodutegevusala" poolt toodetud vastavat toodet (vt täpsemalt @eurostat2008, lk 316-317). Väljapool "kodutegevusala" toodetud tooted ja teenused tõstetakse sellest printsiibist lähtuvalt oma "kodutegevusala" alla ringi, pakkumise tabel muutub diagonaalmaatriksiks (iga toodet/teenust pakub tema "kodutööstusharu") ning eelpool kirjeldatud fikseeritud müügistruktuuri eelduse kohaselt korrigeeritud kasutamise tabelist saab selle protsessi tulemusena *tegevusala-tegevusala* tabel.
+
+Maatrikstehetena esitatuna näeb see protsess välja nii (tähistusi vaata tabelist \@ref(tab:IO-frame)) (allikas: @eurostat2008, lk 356).
+
+```{=tex}
+\begin{equation} 
+  T = V*(diag(q-m))^{-1}
+  (\#eq:T)
+\end{equation}
+```
+T on transformatsioonimaatriks. Kui seda korrutada kasutamise tabeli vahetarbimise osaga (U), siis saame tulemuseks majandustegevusala x majandustegevusala sisendväljundtabeli kodumaise toodangu vahetarbimise osa (Bd).
+
+```{=tex}
+\begin{equation} 
+  B_d = T*U
+  (\#eq:Bd)
+\end{equation}
+```
+Kodumaise toodangu lõpptarbimise korrigeerimiseks tuleb transformatsioonimaatriksit korrutada kasutamise tabeli kodumaise lisandväärtuse osaga.
+
+```{=tex}
+\begin{equation} 
+  F_d = T * Y_d
+  (\#eq:Fd)
+\end{equation}
+```
+Lisandväärtuse osa kasutamise tabelist korrigeerimist ei vaja, sest see on esitatud juba majandustegevusalade lõikes.
+
+Leontiefi multiplikaatorite arvutamiseks vajalik tehniliste koefitsientide maatriks (Ad) leitakse järgnevalt:
+
+```{=tex}
+\begin{equation} 
+  A_d = B_d * (diag(g))^{-1}
+  (\#eq:Ad)
+\end{equation}
+```
+Lisandväärtuse komponentide koefitsiendid leitakse nii:
+
+```{=tex}
+\begin{equation} 
+  R = W * (diag(g))^{-1}
+  (\#eq:R)
+\end{equation}
+```
+Nende komponentide abil on võimalik arvutada multiplikaatorid, mis näitavad, kui palju suureneb kogutoodang (aga huvi korral ka hõive, lisandväärtus, kasumid, tööjõukulu jne) kui lõpptarbimine suureneb ühe ühiku võrra.
+
+## Kuidas leiame sisendväljundtabelite põhised multiplikaatorid
+
+Vaatame kahte erineva tüüpi multiplikaatoreid. Alustame Leontiefi I tüüpi tootmismultiplikaatoritest, mis näitavad, kui palju suureneb kogutoodang mingi toote/teenuse lõpptarbimise kasvu (otsene mõju) ja vahetarbimise kasvu (kaudne efekt) tulemusena, kui lõpptarbimine kasvab ühe ühiku võrra.
+
+Seejärel vaatame, mis juhtub siis, kui käsitleda kodumajapidamiste tarbimist endogeensena ja eeldada, et töötajad viivad otseste ja kaudsete efektide tulemusena elavnenud majandusest tuleneva palgatulu kasvu poodi ning suurendavad seeläbi omakorda lõpptarbimist, kutsudes esile täiendava majanduse elavnemise (tingitud efekt). Otseseid, kaudseid ja tingitud efekte sisaldavat tootmismultiplikaatorid kutsutakse ka Leontiefi II tüüpi multiplikaatoriks.
+
+### Leontiefi I tüüpi multiplikaatorid
+
+Majandustegevusalade kogutoodangut on võimalik väljendada järgmise võrrandisüsteemi abil (siin ja edaspidi on tuginetud @eurostat2008 lehekülgedele 486-487):
+
+```{=tex}
+\begin{equation} 
+  x_{11} + x_{12} + ... + x_{1n} + x_{1d} = x_1 \nonumber \\
+  ... \nonumber \\
+  x_{n1} + x_{n2} + ... x_{nn} + x_{nd} = x_{n} \nonumber \\   
+  (\#eq:eq-sys-tp)
+\end{equation}
+```
+kus
+
+$x_{ij}$ - majandustegevusala *i* toodete vahetarbimine majandustegevusala *j* poolt
+
+$x_{id}$ - majandustegevusala *i* toodete lõpptarbimine
+
+$x_{i}$ - majandustegevusala *i* toodete kogutoodang
+
+Kui soovime teada, kui suure proportsionaalse osa tegevusala *j* sisendivajadusest moodustavad tegevusala *j* tooted, siis leiame selle järgmiselt:
+
+```{=tex}
+\begin{equation} 
+  a_{ij} = x_{ij}/x_{j}
+  (\#eq:aij)
+\end{equation}
+```
+Tegevusala *j* vajadus tegevusala *i* sisendite järgi avaldub seega järgmiselt:
+
+```{=tex}
+\begin{equation} 
+  x_{ij} = a_{ij} * x_{j}
+  (\#eq:xij)
+\end{equation}
+```
+Kui asendada võrrandisüsteemis (6) $x_{ij}$ valemis (8) esitatuga, siis saame:
+
+```{=tex}
+\begin{equation} 
+  a_{11}*x_1 + a_{12}*x_2 + ... + a_{1n}*x_n + x_{1d} = x_1 \nonumber \\
+  ... \nonumber \\
+  a_{n1}*x_1 + a_{n2}*x_2 + ... a_{nn}*x_n + x_{nd} = x_{n} \nonumber \\ 
+  (\#eq:eq-sys-tp-coef)
+\end{equation}
+```
+Kui keskenduda vaid kodumaise toodangu vahe ja lõpptarbimisele, siis saab selle võrrandisüsteemi esitada maatrikskujul järgmiselt:
+
+```{=tex}
+\begin{equation} 
+  A_d *g + f_d = g
+  (\#eq:g1)
+\end{equation}
+```
+kus
+
+$A_d$ - tehniliste koefitsientide maatriks
+
+$g$ - kodumaise kogutoodangu vektor
+
+$f_d$ - lõpptarbimise vekor
+
+Eelpool kirjeldatud muutujaid oleme eelnevalt juba põgusalt puudutanud. Muude tunnuste kõrval on ainukeseks tundmatuks $f_d$, mis viitab kodumaise summaarse lõpptarbimise vektorile. Varasemalt esitatud valemites kasutatud $F_d$ viitas lõpptarbimise maatriksile (selle komponentide lõikes). Kui soovime teada kogutoodang, kui suurneb lõpptarbimine, siis saame selle kerge vaevaga avaldada:
+
+```{=tex}
+\begin{equation} 
+  (I - A_d) * g = f_d \\
+  g - A_d *g = f_d  \\
+  g = (I-A_d)^{-1} * f_d \\
+  \Delta g = (I-A_d)^{-1} * \Delta f_d \\
+  (\#eq:delta-g)
+\end{equation}
+```
+Selleks, et leida kogutoodangu suurenemise vektor, tuleb lõpptarbimise suurenemise vektor korrutada Leontiefi pöördmaatriksiga. $(I-A_d)^{-1}$ tulbasummad on ühtlasi võrdsed iga tegevusala **kogutoodangu multiplikaatoritega** ning rea kaupa vaadatuna võimaldavad need hinnata seda kui palju ühe tegevusala nõudluse kasv ühe või teise tegevusala toodete ja teenuste järgi nõudlust suurendab.
+
+### Leontiefi II tüüpi multiplikaatorid
+
+Standardses sisend-väljundmudelis on lõpptarbimine eksogeenne. Samas on mõeldav, et lõpptarbimine võib olla ka endogenne, näiteks seotud sissetulekutega.
+
+Endogeense kodumajapidamiste tarbimise puhul laiendatakse vahetarbimise maatriksit tööjõukulude rea ja kodumajapidamiste kulude veeruga.
+
+```{r IO-end-demand, tab.cap="Sisendväljundraamistik endogeense nõudlusega", out.width = '80%'}
+X0 = c("Põllumajandus", "Tootmine", "Teenindus", "Palk")
+X1 = c("", "", "", "")
+X2 = c("", "Ad", "", "B")
+X3 = c("", "", "", "")
+X4 = c("", "Cd", "", "E")
+dummy_df = data.frame(X0, X1, X2, X3, X4)
+rm(X0, X1, X2, X3, X4)
+                      
+colnames(dummy_df) = c("Tegevusala", "Põllumajandus", "Tootmine", "Teenindus", "Kodumajapidamiste tarbimine")
+
+IO_end = flextable(dummy_df) %>%
+  border_remove() %>%
+  vline(j = c(1, 4)) %>%
+  hline_top(j=c(1, 2, 3, 4, 5)) %>%
+  hline(i = c(3))%>%
+  align(j = 5, align = "center", part = "body")
+IO_end
+```
+
+kus
+
+Ad - kodumaise vahetarbimise *tegevusala-tegevusala* tehniliste koefitsientide maatriks
+
+B - palkade vektor
+
+Cd - kodumajapidamiste lõpptarbimise vektor
+
+E - element, mis kirjutatakse nulliks
+
+Dd - tähis kogu tabelile (sektoritele Ad, B, Cd, E).
+
+*Allikas: @eurostat2008, lk 511*
+
+Tootmise multiplikaatorid leitakse järgmise valemi abil:
+
+```{=tex}
+\begin{equation} 
+  H = (I-D_d)^{-1}
+  (\#eq:H)
+\end{equation}
+```
+kus
+
+$H$ - Leontiefi II tüüpi kogutoodangu multiplikaatorid
+
+$I$ - ühikmaatriks
+
+$D_d$ - tööjõukulude ja kodumajapidamiste lõpptarbimisega laiendatud kodumaise toodangu vahetarbimise maatriks
+
+Maatriksi H viimast rida (tööjõukulu) tuleks tõlgendada kui multiplikaatorit, mis näitab, palju suureneb palgatulu, kui lõpptarbimine suureneb ühe ühiku võrra (palgatulu multiplikaator).
+
+Leonteifi II tüüpi multiplikaatorite arvutamine on avatud oluliselt laiemale lähenemiste ringile kui I tüüpi multiplikaatorid. Millist palgatulu kasutada? Kas eeldada, et kodumajapidamiste eelarvesse jõuab ainult netopalk, või ka osa kasumist? Mida arvata sotsiaalmaksust - tööjõukulude suurenemisega peaks kaasnema ka sotsiaalmaksu kasv ning kuna oluline osa sotsiaalmaksu laekumisest kulub pensionide maksmiseks, siis jõuab ka see raha kodumajapidamisteni. Kas kogu sissetulekute kasv tarbitakse ära, või säästetakse ka midagi? Võibolla võimendatakse sissetulekute kasvu täiendavate laenudega ning kulutatakse isegi sissetulekute kasvust suurem summa?
+
+Meie mudelis on II tüüpi multiplikaatorite arvutamisele lähenetud konservatiivselt - eeldame, et kodumajapidamisteni jõuab vaid netopalk ning muid rahavooge (pensionid, osa kasumist) tuleks modelleerida juba keerulisema mudeli abil. Kodumajapidamiste II ringi tarbimisest oleme maha arvanud nii import, säästumäära kui käibemaksu. Nende kohanduste kohta on täpsemalt võimalik lugeda mudeli metoodikaraportist.   
+
+### Lisandväärtuse, tööjõukulu, kasumi ja muude huvipakkuvate näitajate multiplikaatorid
+
+Teiste näitajate multiplikaatorite arvutamise üldvalem on järgmine:
+
+```{=tex}
+\begin{equation} 
+  z = b * (I-A_d)^{-1}
+  (\#eq:z)
+\end{equation}
+```
+kus
+
+$A_d$ - kodumaise vahetarbimise tegevusala-tegevusala tehniliste koefitsientide maatriks
+
+$b$ - vastava näitaja osakaal või suhe kogutoodangusse tegevusalade lõikes
+
+$z$ - vastava näitaja multiplikaatorid majandustegevusala lõikes
+
+Kui meid peaks huvitama lisandväärtuse mutiplikaatorid, siis peaks *b* olema vektor, mis koosneb lisandväärtuse osakaalust kogutoodangus tegevusalade lõikes, kui kasumite multiplikaatorid, siis vastav näitaja kasumite kohta. Kui meid huvitavad hõive multiplikaatorid, siis peaks b sisaldama töötajate arvu ühe kogutoodangu ühiku kohta (sektorite lõikes). Sarnaselt saab analüüsi laiendada ka muudele sisenditele (maavarade vajadus, kasvuhoonegaaside heitmed jne). Muutuse meid huvitavates näitajates leiame, korrutades multiplikaatorite maatriksi kodumaise lõpptarbimise kasvu maatriksiga.
+
+Kuna kogu arvutus põhineb tootmise multiplikaatoritel, siis saab ka teistele näitajatele leida I ja II tüüpi multiplikaatorid . Sellisel juhul tuleks eelmises peatükis toodud maatriksi $(I-D_d)^{-1}$ tulpade summeerimisel, jättes kõrvale jätta kodumajapidamiste lõpptarbimise tulbale ja tööjõukulude reale arvutatud koefitsiendid.
+
+# Multiplikaatorarvutuse olulisemad sisendid
+
+## Majandustegevusalade vahelised seosed - kodumaise- ja importtoodangu vahetarbimine - 2017
+
+```{r calculations_1}
+# Share of imports in intermediate demand by industry 
+impordi_osakaal_vt_haruti = (colSums(Bm)/colSums(B)*100) %>%
+  round(1) %>%
+  t() %>%
+  as.data.table()
+colnames(impordi_osakaal_vt_haruti) = dict
+
+impordi_osakaal_vt_haruti = impordi_osakaal_vt_haruti %>% 
+  t() %>%
+  as.data.table(keep.rownames = T) %>%
+  .[order(-V1)] %>%
+  .[is.na(V1)==F]
+colnames(impordi_osakaal_vt_haruti) = c("Tegevusala", "Osakaal")
+
+# Total sahre of imports in intermediate demand
+impordi_osakaal_vt_kokku = (sum(Bm)/sum(B)*100) %>% round(1)
+```
+
+Majandustegevusalad tarvitavad sisendina enda ja teiste tegevusalade tooteid ja teenuseid. Nende seoste abil saame uurida, millise tegevusala lõpptarbimise kasvul on kõiges suurem mõju teiste harude tootmise kasvule. Tegevusalade omavahelised seosed on kirjud (vt joonist \@ref(fig:flows-input)). Paremas tulbas on sisendite kasutamine, vasakus nende pakkumine. Liikudes hiirega paremas tulbas oleva tegevusala ees paiknevate värviliste kastikeste peale tuuakse esile seosed valitud tegevusala ja sellele sisendit pakkuvate tegevusalade vahel.
+
+```{r flows-input, fig.cap="Tegevusalade vahetarbimine aastal 2017",fig.topcaption = TRUE, out.width = '100%'}
+
+# Load internal demand matrix
+data <- as.data.frame(Bd)
+
+# Load internal demand for imports matrix and compress to single totla row
+data_abi = Bm %>%
+  colSums() %>%
+  t() %>%
+  as.data.frame()
+rownames(data_abi) = "Import"
+
+# Append imports
+data = rbind(data, data_abi)
+rm(data_abi)
+
+colnames(data) = dict
+rownames(data) = c(dict, "Import")
+
+# Data into long format
+data_long <- data %>%
+  rownames_to_column %>%
+  gather(key = 'key', value = 'value', -rowname) %>%
+  filter(value > 0)
+colnames(data_long) <- c("source", "target", "value")
+
+# Add tags for differenciating between source and target sectors (will be removed later)
+data_long = data_long %>%
+  mutate(target = gsub('\\.', ' ', target)) %>% 
+  mutate(source = paste0('src_', source)) %>% 
+  mutate(target = paste0('trgt_', target))
+
+# From these flows we need to create a node data frame: it lists every entities involved in the flow
+nodes <- data.frame(name = unique(c(data_long$source, data_long$target)), stringsAsFactors = FALSE)
+nodes <- tibble(name = unique(c(data_long$source, data_long$target)),
+                target = grepl('src_', name))
+
+# With networkD3, connection must be provided using id, not using real names. So we need to reformat it.
+data_long$IDsource <- match(data_long$source, nodes$name) - 1 
+data_long$IDtarget <- match(data_long$target, nodes$name) - 1
+
+# Names back to normal again
+nodes$name <- sub('^.*_', '', nodes$name)
+
+# Prepare colour scale (63 colours, no automatic scale works)
+ColourScal ='d3.scaleOrdinal() .range(["#E8E8F8","#7A7AA6","#7E7EC5","#A8A881","#B4B440","#71712F","#725D5D","#DD7878","#C4B3B3","#75AAAA","#717F7F","#BCB0B0",
+                 "#D7D7EC","#6A6A99","#8888BC","#AFAF6F","#ADAD3B","#5F5F31","#845E5E","#DF8484","#B2B5B5","#6FA6A6","#7C7878","#C9C3C3",
+                 "#C5C5DF","#5F5F9C","#8E8EB4","#B7B75B","#A2A238","#4F4F31","#9D5F5F","#E29191","#9EB4B4","#6AA2A2","#917878","#D4D4D4",
+                 "#B0B0CF","#6262A9","#9595AB","#BCBC50","#999934","#414130","#B85F5F","#DF9B9B","#8FB2B2","#659C9C","#9C8383","#DDE4E4",
+                 "#9C9CC1","#6868B7","#9B9B9F","#BDBD48","#8D8D30","#D35F5F","#DBA5A5","#83AFAF","#639393","#A69090","#8A8AB4","#7272C4",
+                 "#A0A093","#BABA43","#82822C","#D86B6B","#D2ADAD","#7CADAD","#688888"])'
+
+# Make the Network
+usage_sankey_kodumaine = sankeyNetwork(Links = data_long, Nodes = nodes,
+              Source = "IDsource", Target = "IDtarget",
+              Value = "value", NodeID = "name", 
+              sinksRight=F, colourScale=ColourScal, nodeWidth=20, fontSize=12, nodePadding=10, height=1600, iterations = 0, units = "M€", margin = c(top = 5, right=0, pottom = 5, left = -200))
+
+# Left nodes to outer edge    
+usage_sankey_kodumaine$x$nodes$target <- nodes$target 
+usage_sankey_kodumaine <- onRender(usage_sankey_kodumaine,
+               '
+  function(el) {
+    d3.select(el)
+      .selectAll(".node text")
+      .filter(d => d.target)
+      .attr("x", -6)
+      .attr("text-anchor", "end");
+  }
+  '
+)
+
+# Print results
+usage_sankey_kodumaine
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+Oluline on mitte unustada ka impordi vahetarbimist, sest impordile kulunud vahendid Eesti majandust ei elavda. Ootuspäraselt on impordi osakaal Eesti tegevusalade vahetarbimises märkimisväärne (`r impordi_osakaal_vt_kokku` protsenti - tegemist on ikkagi väikese ja avatud majandusega), kuid see näitaja kahvatub kõige impordi-intensiivsemate tegevusalade impordi osakaalude kõrval (nt `r impordi_osakaal_vt_haruti$Tegevusala[1]` - `r impordi_osakaal_vt_haruti$Osakaal[1]` protsenti). Viis suurema impordi osakaaluga majandustegevusala on toodud alljärgnevas tabelis. Nende toodete ja teenuste lõpptarbimise kasv teiste tööstusharude toodangud väga palju ei mõjuta - enamus sisendeid tuleb välismaalt.
+
+```{r largest-importers, tab.cap = "Vahetarbimises suurima impordi osakaaluga majandustegevusalad - 2017"}
+
+impordi_osakaal_vt_haruti_tabel = impordi_osakaal_vt_haruti %>%
+  .[1:5,] 
+
+colnames(impordi_osakaal_vt_haruti_tabel) = c("Majandustegevusala", "Impordi osakaal (%)")
+
+impordi_osakaal_vt_haruti_tabel = impordi_osakaal_vt_haruti_tabel %>%
+  flextable() %>%
+  width(j=1, width = 5)%>%
+  width(j=2, width = 4)
+  
+
+impordi_osakaal_vt_haruti_tabel
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+Väikseima impordi osakaaluga majandustegevusalade puhul on impordi osakaal ca kümnendiku juures. Kui esmapilgul tundub koksi- ja naftatööstus selle tabeli tipus mõnevõrra üllatavana, siis arvestades, et selle tegevusala alla liigitatakse ka põlevkiviõli tootmine, ei olegi see väga ootamatu. Nende majandustegevusalade lõpptarbimise kasvul peaks eeldatavalt olema kõige suurem mõju teiste tegevusalade toodangule. Oluline on siiski meeles pidada, et kõik tegevusalad kasutavad vastastikku teineteise sisendeid ning teises ringis olulist rolli mängiva tegevusala impordi kasutamine võib olla märkimisväärselt suurem.
+
+```{r smallest-importers, tab.cap = "Vahetarbimises väikseima impordi osakaaluga majandustegevusalad - 2017"}
+
+impordi_osakaal_vt_haruti_tabel = impordi_osakaal_vt_haruti %>%
+  .[order(Osakaal)] %>%
+  .[1:5,] 
+
+colnames(impordi_osakaal_vt_haruti_tabel) = c("Majandustegevusala", "Impordi osakaal (%)")
+
+impordi_osakaal_vt_haruti_tabel = impordi_osakaal_vt_haruti_tabel %>%
+  flextable() %>%
+  width(j=1, width = 5)%>%
+  width(j=2, width = 4)
+  
+impordi_osakaal_vt_haruti_tabel
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r flows-input-imp, fig.cap="Importtoodete ja -teenuste vahetarbimine aastal 2017",  out.width = '100%', include = F}
+#Senini vaatasime importi ühe tervikuna, kuid huvitav oleks teada ka seda, milline on vahetarbimise impordinõudlus tegevusalade lõikes- nii saame mingit aimu sellest, kuidas takistused rahvusvahelises kaupade liikumises # võiks meie tootmist mõjutada (vt joonist \@ref(fig:flows-input-imp)).
+
+
+# Load internal demand matrix
+data <- as.data.frame(Bm)
+
+# More convenient namest for sectors
+dict = read_excel(file.path(dict_loc, "dictionaries.xlsx"))
+dict = unique(dict$IO_lühike)
+colnames(data) = dict
+rownames(data) = dict
+
+# Data into long format
+data_long <- data %>%
+  rownames_to_column %>%
+  gather(key = 'key', value = 'value', -rowname) %>%
+  filter(value > 0)
+colnames(data_long) <- c("source", "target", "value")
+
+# Add tags for differenciating between source and target sectors (will be removed later)
+data_long = data_long %>%
+  mutate(target = gsub('\\.', ' ', target)) %>% 
+  mutate(source = paste0('src_', source)) %>% 
+  mutate(target = paste0('trgt_', target))
+
+# From these flows we need to create a node data frame: it lists every entities involved in the flow
+nodes <- data.frame(name = unique(c(data_long$source, data_long$target)), stringsAsFactors = FALSE)
+nodes <- tibble(name = unique(c(data_long$source, data_long$target)),
+                target = grepl('src_', name))
+
+# With networkD3, connection must be provided using id, not using real names. So we need to reformat it.
+data_long$IDsource <- match(data_long$source, nodes$name) - 1 
+data_long$IDtarget <- match(data_long$target, nodes$name) - 1
+
+# Names back to normal again
+nodes$name <- sub('^.*_', '', nodes$name)
+
+# Prepare colour scale (63 colours, no automatic scale works)
+ColourScal ='d3.scaleOrdinal() .range(["#E8E8F8","#7A7AA6","#7E7EC5","#A8A881","#B4B440","#71712F","#725D5D","#DD7878","#C4B3B3","#75AAAA","#717F7F","#BCB0B0",
+                 "#D7D7EC","#6A6A99","#8888BC","#AFAF6F","#ADAD3B","#5F5F31","#845E5E","#DF8484","#B2B5B5","#6FA6A6","#7C7878","#C9C3C3",
+                 "#C5C5DF","#5F5F9C","#8E8EB4","#B7B75B","#A2A238","#4F4F31","#9D5F5F","#E29191","#9EB4B4","#6AA2A2","#917878","#D4D4D4",
+                 "#B0B0CF","#6262A9","#9595AB","#BCBC50","#999934","#414130","#B85F5F","#DF9B9B","#8FB2B2","#659C9C","#9C8383","#DDE4E4",
+                 "#9C9CC1","#6868B7","#9B9B9F","#BDBD48","#8D8D30","#D35F5F","#DBA5A5","#83AFAF","#639393","#A69090","#8A8AB4","#7272C4",
+                 "#A0A093","#BABA43","#82822C","#D86B6B","#D2ADAD","#7CADAD","#688888"])'
+
+# Make the Network
+usage_sankey_import = sankeyNetwork(Links = data_long, Nodes = nodes,
+              Source = "IDsource", Target = "IDtarget",
+              Value = "value", NodeID = "name", 
+              sinksRight=F, colourScale=ColourScal, nodeWidth=20, fontSize=12, nodePadding=10, height=1600, iterations = 0, units = "M€", margin = c(top = 5, right=0, pottom = 5, left = -200))
+
+# Left nodes to outer edge    
+usage_sankey_import$x$nodes$target <- nodes$target 
+usage_sankey_import <- onRender(usage_sankey_import,
+               '
+  function(el) {
+    d3.select(el)
+      .selectAll(".node text")
+      .filter(d => d.target)
+      .attr("x", -6)
+      .attr("text-anchor", "end");
+  }
+  '
+)
+
+# Print results
+usage_sankey_import
+
+#*Allikas: Statistikaamet, autori arvutused.*
+```
+
+## Lisandväärtuse, kasumi ja tööjõukulude osakaal
+
+Lisandväärtuse, tööjõukulude ja kasumi multiplikaatorid sõltuvad olulisel määral sellest, kui suur on nende näitajate osakaal kogutoodangus. Seetõttu peatume enne multiplikaatorite juurde minemist põgusalt nendel näitajatel osakaaludel - võimalik, et see aitab paremini mõista, miks multiplikaatorid kujunevad just selliseks nagu nad kujunevad.
+
+Esimese asjana jääb silma, et lisandväärtuse osakaal on tegevusalati küllaltki erinev, ulatudes tabeli ülemises otsas (teadus- ja arendustegevus, haridus, veevarustus, finantsteenuste osutamine) ligi 70%-ni kogutoodangust, samal ajal kui arvutite, elektroonika ja optika toomises on see vaid ca 15%. Kõrge lisandväärtuse osakaal ei pruugi siiski tähendada seda, et ka lisandväärtuse multiplikaator on kõrge väärtusega -- kõrge lisandväärtuse osakaalu peegelpildiks on vahetarbimise madal osakaal, mis peaks vähendama tootmise ning seeläbi ka lisandväärtuse multiplikaatori väärtust. Olgu siiski etteruttavalt öeldud, et kui teadus- ja arendustegevuse puhul paistab eelpool kirjeldatud mõttekäik kehtima, siis haridus on ka toomise multiplikaatorite poolest küllaltki kõrgel kohal ning paikneb lisandväärtuse multiplikaatorite tabeli absoluutses tipus.
+
+Tööjõukulude ja kasumi osakaalude erinevused kogutoodangus on isegi suuremad kui lisandväärtusel (see on ka loogiline, sest nii kasum kui tööjõukulu on olulised lisandväärtuse komponendid). Tööjõukulude kõrge osakaaluga paistab silma jällegi haridus, aga ka hoolekanne ja tervishoid. Alumises otsas on jällegi arvutid, elektroonika ja optika, aga ka kinnisvara ja õhutransport. Eelpool toodu kontrastina on kasumi osakaalu tabelis esikohal just kinnisvara, kus see ulatub pea uskumatu 43% kogutoodangust. Sellele järgneb finantsteenuste osutamine. Kasumitabeli alumine ots räägib aga hoopis kahjumist, seda nii koksi- ja naftatööstuse kui kirjastamise puhul.
+
+Lõpetuseks olgu mainitud, et tööjõukulude osakaal aitab selgitada ka otseste ja kaudsete ning tingitud efektide omavahelist suhet - kõrge tööjõukuluga tegevusalal kipub tingitud efektide suurus olema suurem, kuna need avalduvad läbi selle, et majanduse elavnemisest tekkinud palgatulu kulutatakse omakorda tarbimisele ja elavdatakse seeläbi majandust. Vaata näiteks hariduse või tervishoiu tootmise multiplikaatoreid.
+
+```{r ind-share-prep}
+
+data_joonis_shares = L[-2,] %>%
+  t() %>%
+  as.data.table() %>%
+  .[, Tegevusala := dict]
+colnames(data_joonis_shares) = c("Tööjõukulu", "Netotootmismaksud", "Kulum", "Kasum", "Tegevusala")
+
+data_joonis_shares = data_joonis_shares %>%
+  .[, `Lisandväärtus` := `Tööjõukulu` + Netotootmismaksud + Kulum + Kasum] %>%
+  .[,.(Tegevusala, `Lisandväärtus`, `Tööjõukulu`, Kasum)]
+
+fig_shares = function(data, indicator) {
+  
+  abi=c("Tegevusala", indicator)
+  
+  figure = data %>%
+    .[, abi, with = F] %>%
+    .[Tegevusala!="Kodumajapidamised"] %>%
+    .[order(get(indicator))] %>%
+    .[, Tegevusala:=factor(Tegevusala, levels = Tegevusala)] %>%
+    ggplot(., aes(y=get(indicator), x=Tegevusala)) +
+    geom_bar(stat = "identity")+
+    scale_y_continuous(name = paste0(indicator, " - osakaal kogutoodangus"),
+                       labels = scales::percent,
+                       sec.axis = sec_axis(trans=~.*1, 
+                                           name=paste0(indicator, " - osakaal kogutoodangus"),
+                                           labels = scales::percent))+
+    coord_flip()+
+    theme(text = element_text(size = 10),
+          axis.title = element_text(size = 9))
+
+  return(figure)
+}
+
+```
+
+```{r lv-share, fig.cap = "Lisandväärtuse osakaal kogutoodangus", out.width = '100%', fig.height = 10}
+
+joonis_lv_share = fig_shares(data = data_joonis_shares, indicator = "Lisandväärtus")
+joonis_lv_share
+
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r tjk-share, fig.cap = "Tööjõukulu osakaal kogutoodangus", out.width = '100%', fig.height = 10}
+
+joonis_tjk_share = fig_shares(data = data_joonis_shares, indicator = "Tööjõukulu")
+joonis_tjk_share
+
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r prof-share, fig.cap = "Kasumi osakaal kogutoodangus", out.width = '100%', fig.height = 10}
+
+joonis_kasum_share = fig_shares(data = data_joonis_shares, indicator = "Kasum")
+joonis_kasum_share
+
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+## Kodumaise toodangu osakaal lõpptarbimises
+
+Eesti on väike avatud majandusega riik. On paratamatu, et olulise osa lõpptarbimisest moodustab import. Kui eeldame, et lõpptarbimise suurendamine ühe euro võrra suurendab ka kodumaise toodangu lõpptarbimist ühe euro võrra, siis hindame lõpptarbimise kasvu majandust elavdavat efekti üle.
+
+Kui vaadata kogu lõpptarbimise impordi osakaalu, siis enamuse tegevusalade puhul jääb see alla 10%, ehk valdava osa lõpptarbimisest moodustavad kodumaised tooted ja teenused. Tegevusalad, kus impordi tarbimiskalduvus on suurem, kuuluvad enamasti töötleva tööstuse alla.
+
+```{r dom-share-total, fig.cap = "Kodumaiste toodete ja teenuste tarbimise osakaal lõpptarbimises - lõpptarbimine kokku", out.width = '100%', fig.height = 10}
+
+fig_fun_dom_share = function(fd_comp) {
+result = final_demand_compnent_shares(fd_component = fd_comp) %>%
+  as.data.table() %>%
+  cbind(.,dict)
+colnames(result)[colnames(result)=="dict"] = "Tegevusala"
+
+result = result %>%
+  .[Tegevusala!="Kodumajapidamised"] %>%
+  .[order(`Kodumaise tarbimise osakaal`)] %>%
+  .[, Tegevusala := factor(Tegevusala, levels = Tegevusala)] %>%
+  ggplot(., aes(y=`Kodumaise tarbimise osakaal`, x=Tegevusala)) +
+  geom_bar(stat = "identity")+
+      scale_y_continuous(name = "Kodumaiste toodete/teenuste oskaal lõpptarbimises",
+                       labels = scales::percent,
+                       sec.axis = sec_axis(trans=~.*1, 
+                                           name="Kodumaiste toodete/teenuste oskaal lõpptarbimises",
+                                           labels = scales::percent))+
+coord_flip()+
+  theme(text = element_text(size = 10),
+        axis.title = element_text(size = 9))
+
+return(result)
+}
+
+# Component shares of final consumption
+hh_share_fc = (colSums(Fc)["Kodumajapidamiste lõpptarbimiskulutused"]/sum(colSums(Fc))*100) %>% round(1)
+exp_share_fc = (colSums(Fc)["Kaupade ja teenuste eksport FOB"]/sum(colSums(Fc))*100) %>% round(1)
+gov_share_fc = (colSums(Fc)["Valitsemissektori lõpptarbimiskulutused"]/sum(colSums(Fc))*100) %>% round(1)
+inv_share_fc = (colSums(Fc)["Kapitali kogumahutus põhivarasse ja väärisesemed"]/sum(colSums(Fc))*100) %>% round(1)
+
+
+total_joonis = fig_fun_dom_share(fd_comp = "total")
+total_joonis
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+Lõpptarbimise komponenditi on kodumaiste teenuste ja toodete tarbimise osakaaludes mõningaid erinevusi, kuid üldjoontes paistab eeltoodu kehtivat.
+
+Samas on mõningaid tehnilisi probleeme, millega tuleb veel tegeleda. Kui vaadata investeeringute lõpptarbimist, siis selgub, et muude transpordivahendite tootmise lõpptarbimises on kodumaistel toodetel negatiivne osakaal. Seda paistab kinnitavat, ka originaalandmestik (kasutamise tabel alushindades ja impordi kasutamise tabel), kus joonistub välja sama pilt - kogukasutamine investeeringuteks on väiksem kui impordi kasutamine investeeringuteks. Millest see tingitud on, ei oska praegu öelda, kuid erinevus on päris suur.
+
+```{r dom-share-hh, fig.cap = "Kodumaiste toodete ja teenuste tarbimise osakaal lõpptarbimises - kodumajapidamised", out.width = '100%', fig.height = 10}
+
+hh_joonis = fig_fun_dom_share(fd_comp = "household")
+hh_joonis
+
+koks_dom_share_hh = hh_joonis$data[Tegevusala == "Koksi- ja naftatööstus", `Kodumaise tarbimise osakaal`]
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+Investeeringute importi osakaaludes on kummalisel kombel "Muude transpordivahendite" lõpptarbimine oluliselt väiksem kui import. See pole tingitud sisendväljundtabeli koostamisel tehtud teisendustest vaid paistab sarnaselt silma ka kasutamise tabelitest.  
+
+```{r dom-share-inv, fig.cap = "Kodumaiste toodete ja teenuste tarbimise osakaal lõpptarbimises - investeeringud", out.width = '100%', fig.height = 10}
+
+pi_joonis = fig_fun_dom_share(fd_comp = "investment")
+pi_joonis
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r dom-share-gov, fig.cap = "Kodumaiste toodete ja teenuste tarbimise osakaal lõpptarbimises - valitsussektori kulutused", out.width = '100%', fig.height = 10}
+
+gov_joonis = fig_fun_dom_share(fd_comp = "government")
+gov_joonis
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r dom-share-exp, fig.cap = "Kodumaiste toodete ja teenuste tarbimise osakaal lõpptarbimises - eksport", out.width = '100%', fig.height = 10}
+
+exp_joonis = fig_fun_dom_share(fd_comp = "exports")
+exp_joonis
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+Kokkuvõttes - kui hindame lõpptarbimise kulutuste kasvu mõju lisandväärtusele (või muudele näitajatele), siis kui meil pole just väga head põhjust eeldamaks, et kogu lõpptarbimise kasv tuleb ainult kohalike toodete ja teenuste arvelt, tuleks multiplikaatoreid kodumaise lõpptarbimise osakaaluga kohandada.
+
+## Säästumäär
+Leontiefi II tüüpi multiplikaatorite arvutamisel tuleks arvestada ka sellega, kui suure osa majapidamised oma sissetulekust (või selle kasvust säästavad). Seda on keerulisem teha, kui esmapilgu paistab. Eesti kodumajapidamiste säästumäär on ajas küllaltki palju muutunud. Kriisisituatsioonis võib see kriisieelsest tasemest märkimisväärselt erineda ning eeldatavalt on ka kriiside mõju olla säästmisele erinev.
+
+```{r saving-srate,fig.cap = "Kodumajapidamiste säästumäär", out.width = '100%', fig.height = 4}
+load(file.path(data_loc, "household_savings_rate.Rda"))
+savingsrate = savings_rate %>%
+  .[, Aeg := as.Date(paste0("01-01-", Aasta), "%d-%m-%Y")] %>%
+  .[!is.na(value)] %>%
+  .[Aasta == "2019", Label := value] %>%
+  ggplot(., aes(x = Aeg, y = value, group = 1)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_x_date(name = "Aasta",
+               date_breaks = "1 year",
+               date_labels = "%y")+
+  geom_point() +
+  geom_line()+
+  geom_text(aes(label = scales::percent(Label, accuracy = 1L)), hjust = 1.2, size = 3.5, colour = "gray30")+
+  geom_hline(yintercept = 0, colour = "gray50") +
+  ylab("Kodumajapidamiste säästumäär")
+
+savingsrate
+```
+
+# Eesti multiplikaatorid
+
+## Kodumaise lõpptarbimise suurenemise I ja II tüüpi multiplikaatorid nullsäästmise korral
+
+Mis juhtub, kui kodumaise toodangu lõpptarbimine suureneb ühe euro võrra? Vaatame nelja indikaatori multiplikaatoreid - kogutoodang, lisandväärtus, tööjõukulu ja kasum. Kõik multiplikaatorid näitavad, palju suureneb vaatlusalune näitaja, kui kodumaise toodangu / teenuste lõpptarbimine suureneb ühe ühiku võrra. Multiplikaatorite arvutamisel on arvesse võetud, et impordi vahetarbimine majandust ei elavda. Lõpptarbimise impordisisaldust on arvestatud vaid II tüüpi multiplikaatorite arvutamisel - tingitud efekt, kus töötajad saavad majanduse elavnemise tulemusena rohkem palka ning selle võrra suureneb kodumajapidamiste eratarbimine ning omakorda tootmine, on kodumajapidamiste impordi tarbimise võrra väiksem. Praegu ignoreerime ka säästmist (eeldame, et kogu II ringis lisanduv sissetulek suunatakse tarbimisse) ning käibemaksu mõju.
+
+Esitame multiplikaatorite mõju lahutatuna a) otsesteks ja kaudseteks ning b) tingitud efektideks. Leontiefi I tüüpi multiplikaator sisaldab otseseid ja kaudseid efekte (tumedad tulbad) ning II tüüpi multiplikaator nii otseseid, kaudseid kui tingitud efekte, ehk on võrdne joonisel üksteise otsa paigutatud tumedate ja heledamate tulpade summaga. Multiplikaatorite suuruseid ei ole mõttekas ükshaaval lahti kirjutada - lihtsam on vaadata neid jooniselt. Olgu vaid öeldud, et sageli pole tegevusalad, mille tootmismultiplikaatorite väärtused on suured sugugi kõige olulisemad panustajad lisandväärtuse loomesse. Nii leiame kõige kõrgema lisandväärtuse multiplikaatoriga tegevusalad (haridus ja hoolekanne) tootmismultiplikaatorite loendis alles teisest kümnest.
+```{r mult-calc}
+
+# We create a dataset of all indicators
+indicators = c("production", "value_added", "labour_cost", "profits")
+indicators_lab = c("Tootmine", "Lisandväärtus", "Tööjõukulu", "Kasum")
+
+# And types
+types = c("I", "II")
+
+for(i in indicators) {
+  for(j in types) {
+    result_abi = ibi_IO_multiplyers(indicator = i, type = j, ignroe_II_round_imp = "no") %>%
+      as.data.table(keep.rownames = T) %>%
+      .[, Indikaator := indicators_lab[grep(i, indicators)]] %>%
+      .[, `Tüüp` := j]
+
+    if(i==indicators[1] & j==types[1]) {
+      result = result_abi
+    } else {
+      result = rbind(result, result_abi)
+    }
+  }
+}
+
+colnames(result)[1:2] = c("Tegevusala", "Multiplikaator") 
+
+dict_abi = unique(dict_baas[, c("Tegevusala tekst IO tabel","IO_lühike")])
+result = merge(result, dict_abi, by.x = "Tegevusala", by.y ="Tegevusala tekst IO tabel")  
+result$Tegevusala = NULL
+colnames(result)[colnames(result) == "IO_lühike"] = "Tegevusala"
+
+
+# Fig function - makes plots of multiplyers
+fig_fun_mult = function(data, indicator = "Tootmine", type = "I ja II"){
+  
+  if(type == "I"){
+    type_value = "I"
+  } else {
+    type_value = "II"
+  }
+  
+  levels_tegevusala = data %>%
+  .[Indikaator == indicator & `Tüüp` == type_value] %>%
+  .[order(Multiplikaator)] %>%
+  .[, Tegevusala]
+
+figure = data %>%
+  .[Indikaator == indicator] %>%
+  .[Tegevusala!="Kodumajapidamised"] %>%
+  dcast(Indikaator+Tegevusala~`Tüüp`, value.var = "Multiplikaator") %>%
+  .[, Tingitud:=II-I] %>%
+  .[, `Otsene ja kaudne`:=I] %>%
+  melt(id.vars = c("Indikaator", "Tegevusala"), measure.vars = c("Otsene ja kaudne", "Tingitud"), value.name = "Multiplikaator", variable.name = "Efekt") %>%
+  .[, Tegevusala:=factor(Tegevusala, levels = levels_tegevusala)] %>%
+  .[, Efekt:=factor(Efekt, levels = c("Tingitud", "Otsene ja kaudne"))] %>%
+  .[, `Efekti suurus`:=Multiplikaator] %>%
+  .[Tegevusala!="Kodumajapidamised"] %>%
+  .[, label_pos := cumsum(`Efekti suurus`), .(Tegevusala)]
+
+if(type == "I"){
+  figure = figure %>%
+    .[Efekt == "Otsene ja kaudne"]
+} 
+  figure = figure %>%
+    
+  ggplot(., aes(y=`Efekti suurus`, x=Tegevusala, group = `Efekt`, fill = `Efekt`)) +
+  geom_bar(stat = "identity")+
+  #geom_text(aes(y = label_pos, label = round(label_pos, 1)), hjust = -1.2)+
+  scale_y_continuous(name = "Efekti suurus",
+                     breaks = c(0, 0.5, 1, 1.5, 2, 2.5, 3),
+                     sec.axis = sec_axis(trans=~.,
+                                         breaks = c(0, 0.5, 1, 1.5, 2, 2.5, 3),
+                                         name="Efekti suurus"))+
+  expand_limits(y=3) +
+  coord_flip()+
+  theme(text = element_text(size = 10),
+        axis.title = element_text(size = 9))
+
+return(figure)
+}
+
+max_mult = result[Indikaator == "Tootmine" & `Tüüp`=="II" & Multiplikaator == max (Multiplikaator)]$Multiplikaator %>% round(2)
+
+max_mult_tegevusala = result[Indikaator == "Tootmine" & `Tüüp`=="II" & Multiplikaator == max (Multiplikaator)]$Tegevusala 
+
+haridus_mult_prod =  result[Indikaator == "Tootmine" & `Tüüp`=="II" & Tegevusala == "Haridus"]$Multiplikaator %>% round(2)
+
+haridus_mult_va = result[Indikaator == "Lisandväärtus" & Tegevusala == "Haridus" & `Tüüp`=="II", Multiplikaator]
+```
+
+Enamus multiplikatiivsest mõjust tuleb otsestest ja kaudsetest efektidest - tingitud efektide osakaal kogumõjus on harva suurem kui kolmandik (mõnel üksikul juhul ka veidi rohkem). Siinkohal on oluline mainida, et tingitud efektide arvutused on tehtud eeldades 0% säästumäära. Eeldatavalt ei ole selline eeldus realistlik ning mudelis jääb säästumäär kindlasti parameetriks, mida saab muuta. Kõrgema säästumääraga peaks tingitud efektid tulema madalamad.
+
+Kui realistlikud need tulemused on? Võrreldes neid näiteks Malta kohta arvutatud multiplikaatoritega, siis nende kõrgemad tootmise multiplikaatori väärtused küünivad 2,96-ni (kindlustus ja pensionifondid), sellele järgneb tööhõive (2,63), hoolekanne (2,59) ja haridus (2,54) (@cassar2015, lk 10). Meie väärtused on veidi madalamad - kõige kõrgem tootmise multiplikaatori väärtus on `r max_mult` - `r tolower(max_mult_tegevusala)`.
+
+Eesti hariduse otseseid, kaudseid ja tingitud efekte arvestav tootmise multiplikaator on nt `r haridus_mult_prod`. Selle põgusa võrdluse kohaselt tunduvad meie hinnangud olema veidi madalamad. Tulevikus võiks kaaluda meie näitajate võrdlemist ka mõningate teiste riikidega - Malta on küll samuti väikese ja avatud majandusega riik, kuid Eesti ja Malta majandusstruktuurid on küllaltki erinevad.
+
+Kui vaadata põgusalt ka lisandväärtuse multiplikaatorit, siis praegu tundub haridus päris hea investeering - kui suurendame kodumaise haridussektori teenuste lõpptarbimist ühe euro võrra, siis suureneb selle tulemusena lisandväärtus `r haridus_mult_va %>% round(2)` euro võrra (vt joonist \@ref(fig:mult-va)).
+
+```{r mult-prod, fig.cap = "Tootmise I ja II tüüpi multiplikaatorid", out.width = '100%', fig.height = 10}
+# Production
+joonis_prod = fig_fun_mult(data = result, indicator = "Tootmine", type = "II")
+joonis_prod
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-va, fig.cap = "Lisandväärtuse I ja II tüüpi multiplikaatorid", out.width = '100%', fig.height = 10}
+# Value added
+joonis_va = fig_fun_mult(data = result, indicator = "Lisandväärtus", type = "II")
+joonis_va
+
+#Will use that later in text
+koks_mult_va = joonis_va$data[Tegevusala == "Koksi- ja naftatööstus", sum(Multiplikaator)]
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-lc, fig.cap = "Tööjõukulu I ja II tüüpi multiplikaatorid", out.width = '100%', fig.height = 10}
+# Value added
+joonis_lc = fig_fun_mult(data = result, indicator = "Tööjõukulu", type = "II")
+joonis_lc
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-profit, fig.cap = "Kasumi I ja II tüüpi multiplikaatorid", out.width = '100%', fig.height = 10}
+# Value added
+joonis_profit = fig_fun_mult(data = result, indicator = "Kasum", type = "II")
+joonis_profit
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+## Lõpptarbimise suurenemise I ja II tüüpi multiplikaatorid
+Eelmises peatükis toodud multiplikaatorite suurused eeldasid, et suureneb kodumaine lõpptarbimine. Majandust stimuleeriva poliitikasekkumise kavandamisel ei ole see aga päris asjakohane info, sest küllaltki keeruiline on suurendada just sisemaiste toodete/teenuste pakkumist. Alljärgnevad joonised võtavad arvesse seda, et osa lõpptarbimise suurenemisest on impordi nõudlus (ning seetõttu Eesti majandust ei elavda). Eelmise peatükiga võrreldes on teiseks erienvuseks ka see, et seal eeldati 0-säästumäära - tingitud efektide arvutamisel kulutavad kodumajapidamised kogu sissetuleku kasvu uuesti poes ära ning see elavdab omakorda majandust. Selles peatükis eeldame, et kehtib 2019. aasta säästumäär (ca 14% sissetulekute kasvust säästetakse). Lõpetuseks eeldame, et majandust elavdavad vaid käibemaksujärgsed summad (tegevusala toodetele rakenduv keskmine nominaalne käibemaks arvutatakse lõpptarbimise kasvust maha).       
+
+Kuna impordi tarbimiskalduvused on on lõpptarbimise komponenditi erinevad, siis on erinevad ka erinevate lõpptarbimise komponentide multiplikaatorid. Alustame kodumajapidamistest.
+
+### Kodumajapidamised
+Käibemaksu, impordi tarbimiskalduvust ja säästmist arvesse võtvad multiplikaatorid peaks olema madalamate väärtustega kui eelmises peatükis esitatud korrigeerimata multiplikaatorid, seejuures mõjutavvad impordi tarbimiskalduvus ja käibemaks nii I kui II tüüpi multiplikaatoreid, säästumäär ainult teist tüüpi multiplikaatorit. Tegevusaladel, kus impordi osakaal on lõpptarbimisel väike ning käive valdavalt käibemaksuvaba (nt finantssektor, kindlustus), peaks esimest tüüpi multiplikaatorid tulema pea sarnased eelmises peatükis tooduga.
+
+```{r mudel-data-ettevalmistus}
+# meie mudeli järgsed multiplikaaotird I tüüpi 
+multiplikaatorid_mudel_I = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-kodu.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "I",
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_I[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_I$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+# meie mudeli järgsed multiplikaaotird II tüüpi multiplikaatorid 
+multiplikaatorid_mudel_II = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-kodu.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "II",
+                           saastumaar = 14.0,
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_II[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_II$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+mudel_mult_data_abi = multiplikaatorid_mudel_II$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, II := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, II)]
+
+mudel_mult_data = multiplikaatorid_mudel_I$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, I := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, I)] %>%
+  merge(., mudel_mult_data_abi, by = c("Näitaja", "Stsenaarium"), all.x = T) %>%
+  melt(., id.vars = c("Näitaja", "Stsenaarium"), measure.vars = c("I", "II"), value.name = "Value", variable.name = "Efekt")
+
+colnames(mudel_mult_data)= c("Indikaator", "Tegevusala", "Tüüp", "Multiplikaator")
+
+
+```
+
+
+```{r mult-toot-mudel, fig.cap = "Tootmise I ja II tüüpi multiplikaatorid, kodumajapidamiste lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tootmine_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kogutoodang", type = "I ja II")
+joonis_tootmine_mudel
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-lv-mudel, fig.cap = "Lisandväärtuse I ja II tüüpi multiplikaatorid, kodumajapidamiste lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_lv_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Lisandväärtus", type = "I ja II")
+joonis_lv_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+```{r mult-tjk-mudel, fig.cap = "Tööjõukulu I ja II tüüpi multiplikaatorid, kodumajapidamiste lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tjk_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Tööjõukulu", type = "I ja II")
+joonis_tjk_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+```{r mult-kasum-mudel, fig.cap = "Kasumi I ja II tüüpi multiplikaatorid, kodumajapidamiste lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_kasum_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kasum", type = "I ja II")
+joonis_kasum_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+```{r joonis raporti jaoks, include=FALSE}
+mudel_mult_data_koond = mudel_mult_data %>%
+  .[Indikaator %in% c("Lisandväärtus", "Maksutulu", "Kogutoodang")] %>%
+  .[Tegevusala!="Kodumajapidamised"] %>%
+  dcast(Indikaator+Tegevusala~`Tüüp`, value.var = "Multiplikaator") %>%
+  .[, Tingitud:=II-I] %>%
+  .[, `Otsene ja kaudne`:=I] %>%
+  melt(id.vars = c("Indikaator", "Tegevusala"), measure.vars = c("Otsene ja kaudne", "Tingitud"), value.name = "Multiplikaator", variable.name = "Efekt") %>%
+  .[, Efekt:=factor(Efekt, levels = c("Tingitud", "Otsene ja kaudne"))] %>%
+  .[, `Efekti suurus`:=Multiplikaator] %>%
+  .[Tegevusala!="Kodumajapidamised"] %>%
+  .[, label_pos := cumsum(`Efekti suurus`), .(Tegevusala)] %>%
+  .[, Indikaator := factor(Indikaator, levels = c("Lisandväärtus", "Maksutulu", "Kogutoodang"))]
+
+levels_tegevusala = mudel_mult_data %>%
+  .[Indikaator == "Lisandväärtus" & `Tüüp` == "II"] %>%
+  .[order(Multiplikaator)] %>%
+  .[, Tegevusala]
+
+figure_koond = mudel_mult_data_koond %>%  
+  .[, Tegevusala:=factor(Tegevusala, levels = levels_tegevusala)] %>%
+  ggplot(., aes(y=`Efekti suurus`, x=Tegevusala, group = `Efekt`, fill = `Efekt`)) +
+  geom_bar(stat = "identity")+
+  #geom_text(aes(y = label_pos, label = round(label_pos, 1)), hjust = -1.2)+
+  scale_y_continuous(name = "Efekti suurus")+
+  #expand_limits(y=3) +
+  coord_flip()+
+  facet_grid(.~Indikaator)+
+  theme(text = element_text(size = 10),
+        axis.title = element_text(size = 9),
+        legend.position = "bottom")
+  
+#figure_koond
+ggsave(figure_koond, file = "multiplikaatorid.png", width = 16, height = 23, units = "cm") 
+```
+
+### Investeeringud
+Investeeringute ja valitsuse lõpptarbimise multiplikaatorid erinevad kodumajapidamiste lõpptarbimise omadest eeskätt erineva impordi kasutamise osakaalu tõttu. Käibemaksu käsitletakse nii investeeringute kui valitsuse sektori kulutuste juures sarnaselt kodumajapidamiste lõpptarbimisega. Investeeringute osas võib see tekitatak küsimusi (ettevõtted saavad sisendite käibemaksu oma käibemaksukohustusest maha arvata), kuid nende lõpptoodang on valdavalt ikkagi käibemaksuga maksustatud ning sisuliselt toimub lihtsalt sisendite käibemaksu edasilükkamine.  
+
+```{r mudel-data-ettevalmistus-invest}
+# meie mudeli järgsed multiplikaaotird I tüüpi 
+multiplikaatorid_mudel_I = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-invest.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "I",
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_I[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_I$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+# meie mudeli järgsed multiplikaaotird II tüüpi multiplikaatorid 
+multiplikaatorid_mudel_II = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-invest.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "II",
+                           saastumaar = 14.0,
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_II[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_II$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+mudel_mult_data_abi = multiplikaatorid_mudel_II$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, II := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, II)]
+
+mudel_mult_data = multiplikaatorid_mudel_I$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, I := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, I)] %>%
+  merge(., mudel_mult_data_abi, by = c("Näitaja", "Stsenaarium"), all.x = T) %>%
+  melt(., id.vars = c("Näitaja", "Stsenaarium"), measure.vars = c("I", "II"), value.name = "Value", variable.name = "Efekt")
+
+colnames(mudel_mult_data)= c("Indikaator", "Tegevusala", "Tüüp", "Multiplikaator")
+
+
+```
+
+
+```{r mult-toot-mudel-inv, fig.cap = "Tootmise I ja II tüüpi multiplikaatorid, investeeringud", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tootmine_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kogutoodang", type = "I ja II")
+joonis_tootmine_mudel
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-lv-mudel-inv, fig.cap = "Lisandväärtuse I ja II tüüpi multiplikaatorid, investeeringud", out.width = '100%', fig.height = 10}
+# Value added
+joonis_lv_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Lisandväärtus", type = "I ja II")
+joonis_lv_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+```{r mult-tjk-mudel-inv, fig.cap = "Tööjõukulu I ja II tüüpi multiplikaatorid, investeeringud", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tjk_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Tööjõukulu", type = "I ja II")
+joonis_tjk_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+```{r mult-kasum-mudel-inv, fig.cap = "Kasumi I ja II tüüpi multiplikaatorid, investeeringud", out.width = '100%', fig.height = 10}
+# Value added
+joonis_kasum_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kasum", type = "I ja II")
+joonis_kasum_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+### Valitussektori lõpptarbimine
+Nagu eelnevalt mainitud on eripärad kodumajapidamiste tarbimise ja investeeringutega ainult valitsuse sektori lõpptarbimise erinevas impordi tarbimiskalduvuses.
+
+```{r mudel-data-ettevalmistus-gov}
+# meie mudeli järgsed multiplikaaotird I tüüpi 
+multiplikaatorid_mudel_I = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-gov.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "I",
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_I[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_I$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+# meie mudeli järgsed multiplikaaotird II tüüpi multiplikaatorid 
+multiplikaatorid_mudel_II = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-gov.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "II",
+                           saastumaar = 14.0,
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_II[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_II$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+mudel_mult_data_abi = multiplikaatorid_mudel_II$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, II := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, II)]
+
+mudel_mult_data = multiplikaatorid_mudel_I$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, I := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, I)] %>%
+  merge(., mudel_mult_data_abi, by = c("Näitaja", "Stsenaarium"), all.x = T) %>%
+  melt(., id.vars = c("Näitaja", "Stsenaarium"), measure.vars = c("I", "II"), value.name = "Value", variable.name = "Efekt")
+
+colnames(mudel_mult_data)= c("Indikaator", "Tegevusala", "Tüüp", "Multiplikaator")
+
+
+```
+
+```{r mult-toot-mudel-gov, fig.cap = "Tootmise I ja II tüüpi multiplikaatorid, valitsussektori lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tootmine_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kogutoodang", type = "I ja II")
+joonis_tootmine_mudel
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-lv-mudel-gov, fig.cap = "Lisandväärtuse I ja II tüüpi multiplikaatorid, valitsussektori lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_lv_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Lisandväärtus", type = "I ja II")
+joonis_lv_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-tjk-mudel-gov, fig.cap = "Tööjõukulu I ja II tüüpi multiplikaatorid, valitsussektori lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tjk_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Tööjõukulu", type = "I ja II")
+joonis_tjk_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-kasum-mudel-gov, fig.cap = "Kasumi I ja II tüüpi multiplikaatorid, valitsussektori lõpptarbimine", out.width = '100%', fig.height = 10}
+# Value added
+joonis_kasum_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kasum", type = "I ja II")
+joonis_kasum_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+### Ekspordi lõpptarbimine
+Ekspordi multiplikaatorite arvutamise käibemaksu lõpptarbimise muutusest maha ei arvata, seega on kogu arvutuse lähtepunkt valdava osa tegevusalade jaoks kõrgem ja peaks mõjuma multiplikaatorite väärtustele positiivselt. Samas on ekspordinõudluse impordi kasutamise tõenäosused jällegi veidi erinevad, nii et ekspordi multiplikaatorid ei pruugi ilmtingimata kõrgemad tulla.
+
+```{r mudel-data-ettevalmistus-exp}
+# meie mudeli järgsed multiplikaaotird I tüüpi 
+multiplikaatorid_mudel_I = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-exp.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "I",
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_I[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_I$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+# meie mudeli järgsed multiplikaaotird II tüüpi multiplikaatorid 
+multiplikaatorid_mudel_II = run(andmed = "../5.reports/raportite_lähteandmed/PKT-ja-mult-lahteandmed-exp.xlsx", 
+                           intervall = "aasta", 
+                           elastsused = "ekspert", 
+                           multiplikaatorid = "II",
+                           saastumaar = 14.0,
+                           murra_y=30,
+                           murra_f=20,
+                           f_axes_y = T,
+                           vaikselt = T) 
+
+# Edaspdiseks kasutamiseks viime andmed joonistel esitamiseks mugavasse formaati
+multiplikaatorid_mudel_II[["Andmed-pikk-koond"]] = aggregate_stuff(data_i = multiplikaatorid_mudel_II$Andmed$Toored, 
+                                                              format = "long", 
+                                                              results = "totals")
+
+mudel_mult_data_abi = multiplikaatorid_mudel_II$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, II := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, II)]
+
+mudel_mult_data = multiplikaatorid_mudel_I$Andmed$`Koond pikk`$totals %>%
+  as.data.table() %>%
+  .[, I := Value] %>%
+  .[, .(`Näitaja`, Stsenaarium, I)] %>%
+  merge(., mudel_mult_data_abi, by = c("Näitaja", "Stsenaarium"), all.x = T) %>%
+  melt(., id.vars = c("Näitaja", "Stsenaarium"), measure.vars = c("I", "II"), value.name = "Value", variable.name = "Efekt")
+
+colnames(mudel_mult_data)= c("Indikaator", "Tegevusala", "Tüüp", "Multiplikaator")
+
+
+```
+
+```{r mult-toot-mudel-exp, fig.cap = "Tootmise I ja II tüüpi multiplikaatorid, eksport", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tootmine_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kogutoodang", type = "I ja II")
+joonis_tootmine_mudel
+```
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-lv-mudel-exp, fig.cap = "Lisandväärtuse I ja II tüüpi multiplikaatorid, eksport", out.width = '100%', fig.height = 10}
+# Value added
+joonis_lv_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Lisandväärtus", type = "I ja II")
+joonis_lv_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-tjk-mudel-exp, fig.cap = "Tööjõukulu I ja II tüüpi multiplikaatorid, eksport", out.width = '100%', fig.height = 10}
+# Value added
+joonis_tjk_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Tööjõukulu", type = "I ja II")
+joonis_tjk_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+```{r mult-kasum-mudel-exp, fig.cap = "Kasumi I ja II tüüpi multiplikaatorid, eksport", out.width = '100%', fig.height = 10}
+# Value added
+joonis_kasum_mudel = fig_fun_mult(data = mudel_mult_data, indicator = "Kasum", type = "I ja II")
+joonis_kasum_mudel
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+
+
+
+
+
+
+
+# Võimalikud lisarakendused
+
+## Millised tegevusalad on kõige olulisemad?
+
+Sisend-väljud abil saab hinnata ka seda, kui oluline üks või teine majandustegevusala on - kas on tegemist "võtmetegevusalaga"? Selle analüüsi juured peituvad juba aastakümnete taga (vt @rasmussen1956) ning võtmetegevusalad on selle lähenemise kohaselt tegevusvaldkonnad, mille allavoolu (backward linkage) ja ülesvoolu (forward linkage) mõjud on keskmisest tugevamad. Allavoolu mõjude all peetakse enamasti silmas tootmise otseseid ja kaudseid mõjusid arvestavaid multiplikaatoreid, ehk Leontiefi pöördmaatriksi tulbasummasid (vt \@ref(fig:mult-prod)). Allavoolu mõjud näitavad, kui palju suurendab nende tegevusalade toodangu lõpptarbimise kasv teiste tegevusalade kogutoodangut. Mida rohkem, seda tähtsam tegevusala on.
+
+Ülesvoolu mõjud näitavad, kui oluline sisend tegevusala toodang teiste tegevusalade majandustegevusse on. Selle arvutamiseks leitakse Leontiefi pöördmaatriksi reasummad. Mida suurem on tegevusala roll sisendiandjana, seda olulisem see tegevusala on.
+
+Võtmetegevusaladeks loetakse selliseid tegevusalasid, mis on üle keskmise olulised nii nõudluse tekitaja kui sisendiandjana. Oluline on siiski öelda, et sellise lähenemise näol on tegemist küllaltki lihtsustatud käsitlusega ning majandustegevusala "olulise" määratlemises on kindlasti ka teistsuguseid (võimalik, et sisukamaid) võimalusi.
+
+Nagu näha (vt joonist \@ref(fig:bf-links)), on sellise määratluse kohaselt kõige olulisemad tegevusalad laondus- ja transpordi abitegevused ning kanalisatsioon ja jäätmed. "Tähtsate" majandustegevusalade hulgas leiame ka ehituse, jaekaubanduse, energeetika, transpordi, puidutööstuse, metsanduse, taime ja loomakasvatuse, aga ka reklaaminduse, finantsi- ja kindlustuse ning masinate remondi ja paigalduse. Need nõuavad ühest küljest ise palju sisendeid, kuid samas on ka ise olulised sisendite pakkujad. Seega võiks siit väljalugeda, et kui nende tegevusaladega midagi juhtub, siis võimendub see kõige rohkem. Tähtis on siiski ka see, et kõik need tegevusalad ei ole ühe suurusega ega ole neil sama roll lisandväärtuse loomes. See tõttu oleks ennatlik öelda, et kui nende tegevusaladega midagi juhtub, siis oleks ka kahju kõige suurem.
+
+```{r bf-links, fig.cap="Alla- ja ülesvoolu mõjud",  out.width = '100%', height = 5}
+
+# Backward links
+`Allavoolu mõjud` = solve(I63-Ad) %>%
+  colSums() %>%
+  as.data.table(keep.names=T)
+# Forward links
+`Ülesvoolu mõjud` = solve(I63-Ad) %>%
+  rowSums() %>%
+  as.data.table()
+
+# Shortened names for economic activity
+Tegevusala = dict
+
+data_bf_link = cbind(`Allavoolu mõjud`, `Ülesvoolu mõjud`, Tegevusala) %>%
+    .[Tegevusala != "Kodumajapidamised"]
+colnames(data_bf_link) = c("Allavoolu mõjud", "Ülesvoolu mõjud", "Tegevusala")
+
+# Means
+data_bf_link_mean = data_bf_link %>%
+  .[, .(`Allavoolu mõjud` = mean(`Allavoolu mõjud`), 
+        `Ülesvoolu mõjud` = mean(`Ülesvoolu mõjud`))]
+
+data_bf_link_label= data_bf_link %>%
+  .[`Allavoolu mõjud`> data_bf_link_mean$`Allavoolu mõjud`] %>%
+  .[`Ülesvoolu mõjud`> data_bf_link_mean$`Ülesvoolu mõjud`]
+  
+
+joonis_bf_link = ggplot(data = data_bf_link, aes(x = `Ülesvoolu mõjud`, y = `Allavoolu mõjud`))+
+  geom_point()+
+  geom_hline(data = data_bf_link_mean, aes(yintercept = `Allavoolu mõjud`))+
+  geom_vline(data = data_bf_link_mean, aes(xintercept = `Allavoolu mõjud`))+
+  geom_text(data = data_bf_link_label, aes(label = Tegevusala), size = 2, hjust = -0.1, vjust = -0.1)+
+  lims(x = c(1,4),
+       y = c(1,2.1))+
+  theme(text = element_text(size = 10),
+      axis.title = element_text(size = 9))
+
+  
+joonis_bf_link
+
+```
+*Allikas: Statistikaamet, autori arvutused.*
+
+Joonis \@ref(fig:bf-links) ei võta arvesse tegevusala suurust (olgu siis mõõdetuna tootmismahus, lisandväärtuses, hõives või mõnes muus meile huvi pakkuvas näitajas). Kui räägime tegevusala olulisusest siis tundub selle suuruse ignoreerimine ebamõistlik. Joonis \@ref(fig:bf-links-va-abs) korrigeerib selle vea ja esitab lisandväärtuse kogusumma ringi suurusena. Paistab, et suurust arvestamata on valdav osa olulistest tegevusaladest pigem väikese lisandväärtuse kogusummaga. Üle 500 mln eurose lisandväärtuse kogusummaga on nendest ehitus, jaekaubandus, laondus- ja transpordi abitegevused, puidutööstus, energeetika ning maismaa- ja torutransport.
+
+```{r bf-links-va-abs, fig.cap="Alla- ja ülesvoolu mõjud ning lisandväärtuse kogusumma",  out.width = '100%', height = 5}
+
+# LV shares (wages are also part of labour cost, so this has to be deducted)
+share_of_va = colSums(W[-2,]) %>% 
+  t()%>%
+  .[1:62]
+  
+# Data
+data_bf_link_va = cbind(data_bf_link, share_of_va)  
+colnames(data_bf_link_va)[4] = "Lisand-\nväärtus\nM€"  
+
+data_bf_link_label= data_bf_link_va %>%
+  .[(`Allavoolu mõjud`> data_bf_link_mean$`Allavoolu mõjud` & 
+      `Ülesvoolu mõjud`> data_bf_link_mean$`Ülesvoolu mõjud`) | `Lisand-\nväärtus\nM€`>500]
+
+
+joonis_bf_link = ggplot(data = data_bf_link_va, aes(x = `Ülesvoolu mõjud`, y = `Allavoolu mõjud`))+
+  geom_point(aes(size = `Lisand-\nväärtus\nM€`))+
+  geom_hline(data = data_bf_link_mean, aes(yintercept = `Allavoolu mõjud`))+
+  geom_vline(data = data_bf_link_mean, aes(xintercept = `Allavoolu mõjud`))+
+  geom_text(data = data_bf_link_label, aes(label = Tegevusala), size = 2, hjust = -0.1, vjust = -0.1)+
+  lims(x = c(1,4),
+       y = c(1,2.1))+
+  theme(text = element_text(size = 10),
+    axis.title = element_text(size = 9))
+
+  
+joonis_bf_link
+```
+*Märkus: Ringi suurus tähistab tegevusalal loodava lisandväärtuse kogusummat. Tegevusala nimi on kuvatud suurem kui 500M€ lisandväärtuse kogusummaga tegevusaladele.*
+
+*Allikas: Statistikaamet, autori arvutused.*
+
+# LISA: Lõppkasutamise osakaalud kodumaise toodangu kogukasutamises
+
+Sisend-väljundanalüüsis kasutatavad multiplikaatorid opereerivad lõpptarbimise muutusega, kuid lõpptarbimise muutus (eriti majandustegevusalade lõikes) pole näitaja, mida kuise intervalliga oleks võimalik statistikaametist või mõnest muust andmeallikast järgi vaadata. Samas on info ettevõtete müügikäibe kohta oluliselt paremini kättesaadav. Müügikäibe koosneb aga nii lõpptarbimise kui vahetarbimise rahuldamiseks müüdudu kaupadest ja teenustest. Alljärgneval joonisel on toodud 2017. aasta pakkumise ja kasutamise tabelite põhjal koostatud *tegevusala-tegevusala* sisendväljuntabelil põhinevad kodumaise toodangu vahetarbimise ja lõppkasutamise osakaalud tegevusalade lõikes. See näitaja on kindlasti ajas muutuv, kuid parema puudumisel saab seda kasutada müügikäibest lõpptarbimise tuletamiseks.  
+
+```{r loppk-ok, fig.cap = "Lõppkasutamise osakaalud kodumaise toodangu kogukasutamises", out.width = '100%', fig.height = 10}
+
+nimed = dict_baas %>%
+  as.data.table()%>%
+  .[,.(`IO_lühike`, `Tegevusala tekst IO tabel`)] %>%
+  unique()
+
+kogukasutamine = cbind(rowSums(Bd),rowSums(Fd)) %>%
+  as.data.frame() 
+
+kogukasutamine$Tegevusala = rownames(kogukasutamine)
+  
+colnames(kogukasutamine) = c("Vahetarbimine", "Lõppkasutamine")
+
+kogukasutamine$`Tegevusala-pikk` = rownames(kogukasutamine)
+
+kogukasutamine = kogukasutamine %>%
+  as.data.table() %>%
+  merge(., nimed, by.x = "Tegevusala-pikk", by.y = "Tegevusala tekst IO tabel", all.x = T) %>%
+  .[, Tegevusala := `IO_lühike`] %>%
+  .[, `IO_lühike` := NULL] %>%
+  .[, Kogukasutamine := `Vahetarbimine` + `Lõppkasutamine`] %>%
+  .[, `Lõppkasutamise osakaal` := `Lõppkasutamine` / Kogukasutamine] %>%
+  .[, .(Tegevusala, Vahetarbimine, `Lõppkasutamine`,  Kogukasutamine, `Lõppkasutamise osakaal`)]
+
+ta_levels = kogukasutamine %>%
+  .[order(`Lõppkasutamise osakaal`)] %>%
+  .[, Tegevusala]
+
+kogukasutamine_joonis = kogukasutamine %>%
+  .[, Tegevusala := factor(Tegevusala, levels = ta_levels)] %>%
+  .[Tegevusala != "Kodumajapidamised"] %>%
+  
+  ggplot(., aes(y=`Lõppkasutamise osakaal`, x=Tegevusala)) +
+  geom_bar(stat = "identity")+
+  geom_text(aes(label = scales::percent(`Lõppkasutamise osakaal`, accuracy = 0.1)), hjust = -0.1,  size = 2.5, color = "gray30")+
+  scale_y_continuous(name = "Lõppkasutamise osakaal",
+                     labels = scales::percent_format(),
+                     sec.axis = sec_axis(trans=~.,
+                                         labels = scales::percent_format(),
+                                         name="Lõppkasutamise osakaal"))+
+  expand_limits(y=1.03) +
+  coord_flip()+
+  theme(text = element_text(size = 10),
+        axis.title = element_text(size = 9))
+
+kogukasutamine_joonis
+```
+
+# Allikad
