@@ -90,7 +90,7 @@ export_data_input_template <- function(input_filename, input_file_path, overwrit
 #' and in columns are scenarios (e.g. scenario names or months (by default 18))).
 #' Scenario names are taken from input file (input_filname).
 #' The values are estimated amount of export in EUR of given industry for specified scenario / (month)
-#' @param intervall Time interval of input data. Possible values are "kuu" for monthly data and "aasta" for yearly data
+#' @param time_interval Time interval of input data. Possible values are "kuu" for monthly data and "aasta" for yearly data
 #' @param input_filename Name of the input file (in xlsx format). If missing, then "Andmete sisestamise vormi näidis-eksport.xlsx"
 #' @param input_file_path Path of the input file. If not specified then "4.user_input_examples" in working directory 
 #' @param input_type user input type specified in input file
@@ -102,8 +102,8 @@ export_data_input_template <- function(input_filename, input_file_path, overwrit
 #'  "goods" - baseline export includes only goods
 #'  "services" - baseline export includes only services 
 #'  Example usage:
-#'  export_data(intervall = "aasta", input_type = "absolute_change", goods_services = "goods_and_services")
-export_data <- function(intervall, input_filename, input_file_path, input_type, goods_services){
+#'  export_data(time_interval = "aasta", input_type = "absolute_change", goods_services = "goods_and_services")
+export_data <- function(time_interval, input_filename, input_file_path, input_type, goods_services){
   
   # Locations
   wd <<- getwd()
@@ -128,8 +128,8 @@ export_data <- function(intervall, input_filename, input_file_path, input_type, 
   source(file.path(script_loc,"support_functions.R"), encoding = "UTF-8")
   source(file.path(script_loc,"export_functions.R"), encoding = "UTF-8")
   
-  if (missing("intervall")) {
-    intervall  = prompt_options(text_promt = "Kas sisestatavad andmed on kuised või aastased?\nIs the time interval of the input in months (kuu) or in years (aasta)? (vali kuu/aasta): ", 
+  if (missing("time_interval")) {
+    time_interval  = prompt_options(text_promt = "Kas sisestatavad andmed on kuised või aastased?\nIs the time interval of the input in months (kuu) or in years (aasta)? (vali kuu/aasta): ", 
                                 text_error = "Sellist valikut pole. Vali uuesti: \nThis option is not available. Choose again:",
                                 options = c("kuu", "aasta"),
                                 case_sensitive = "No")
@@ -158,7 +158,7 @@ export_data <- function(intervall, input_filename, input_file_path, input_type, 
     
   }
   
-  export_demand <- calculate_export_demand_change(input_type = input_type, intervall = intervall, goods_services = goods_services) 
+  export_demand <- calculate_export_demand_change(input_type = input_type, intervall = time_interval, goods_services = goods_services) 
   
   return (export_demand)
 }
@@ -213,7 +213,7 @@ run_export_module <- function(){
   if (scenarios_ts == "1"){
     export_demand <- export_data(input_filename = "export_user_input.xlsx", input_file_path = ui_loc)
   } else{
-    export_demand <- export_data(intervall = "kuu", input_filename = "export_user_input.xlsx", input_file_path = ui_loc)
+    export_demand <- export_data(time_interval = "kuu", input_filename = "export_user_input.xlsx", input_file_path = ui_loc)
   }
   
   return(export_demand)

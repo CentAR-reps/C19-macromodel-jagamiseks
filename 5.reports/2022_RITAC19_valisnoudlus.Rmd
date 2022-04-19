@@ -9,6 +9,12 @@ output:
     toc_depth: 2
     toc_float: true
     theme: cosmo
+bibliography: references_valisnoudlus.bib
+link-citations: yes
+linkcolor: blue
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{css caption-to-the-top, echo = FALSE}
@@ -79,11 +85,11 @@ oecd_agr <- openxlsx::read.xlsx(file.path(data_loc, "export_module/ReadMe_ICIO_C
 
 # Sihtturgude struktuur
 
-Ekspordi nõudluses toimuvate muudatuste arvessevõtmiseks toetutakse rahvusvahelisele sisendväljundraamistikule. Kasutatakse OECD 2015. aasta riikidevahelisi sisend-väljund (IO) tabelit (https://www.oecd.org/sti/ind/inter-country-input-output-tables.htm), mis võimaldab arvestada nõudlust sihtriigi-majandusharu (edaspidi sihtturg) lõikes. OECD I-O andmestik sisaldab teavet 64 riigi (36 OECD-sse kuuluvat riiki, 28 OECD-sse mittekuuluvat riiki, lisaks ülejäänud maailm kokku agregeerituna) ja 36 majandusharu kohta. Lisaks majandusharude vahelistele tehingumahtudele on andmestikus kajastatud lõpptarbimine (sh kodumajapidamiste ja valitsuste poolt teostatud tarbimine, põhivara ja varude muutus, vt [Lõpptarbimise definitsioon](#fd_def)) ning majandusharude lisandväärtus. OECD sisend-väljund tabel sisaldab nii kaupade kui teenuste eksporti. 
+Ekspordi nõudluses toimuvate muudatuste arvesse võtmiseks toetutakse rahvusvahelisele sisendväljundraamistikule. Kasutatakse OECD 2015. aasta riikidevahelisi sisend-väljund (IO) tabelit [@oecddata], mis võimaldab arvestada nõudlust sihtriigi-majandusharu (edaspidi sihtturg) lõikes. OECD IO andmestik sisaldab teavet 64 riigi (36 OECD-sse kuuluvat riiki, 28 OECD-sse mittekuuluvat riiki, lisaks ülejäänud maailm kokku agregeerituna) ja 36 majandusharu kohta. Lisaks majandusharude vahelistele tehingumahtudele on andmestikus kajastatud lõpptarbimine (sh kodumajapidamiste ja valitsuste poolt teostatud tarbimine, põhivara ja varude muutus, vt [Lõpptarbimise definitsioon](#fd_def)) ning majandusharude lisandväärtus. OECD sisend-väljund tabel sisaldab nii kaupade kui teenuste eksporti. 
 
 Ekspordi nõudluse arvutamiseks võetakse arvesse vaid otseseid efekte, rahvusvahelise IO tabeli põhjal teiseseid efekte, kuidas teiste riikide omavahelised kaubamahu muutused mõjutavad Eesti majandusharude väljundit, arvesse ei võeta.
 
-OECD I-O andmete kasutamise eesmärgiks on igale Eesti majandusharule leida sihtturgude osakaalud. Lisaks sihtturgude riik-majandusharu paaridele on juurde lisatud riik-lõpptarbimine (FD) osakaalud. Seejuures eeldatakse, et 2015. aastaga võrreldes ei ole struktuuris muutusi toimunud. 
+OECD IO andmete kasutamise eesmärgiks on igale Eesti majandusharule leida sihtturgude osakaalud. Lisaks sihtturgude riik-majandusharu paaridele on juurde lisatud riik-lõpptarbimine (FD) osakaalud. Seejuures eeldatakse, et 2015. aastaga võrreldes ei ole struktuuris muutusi toimunud. 
 
 Näiteks puidu ja puittoodete (majandusharu koodiga 16) sihtturgude jaotus on esitatud allolevas tabelis:
 
@@ -98,7 +104,7 @@ ibci_export_shares %>%
 
 OECD andmestikus on mitmed majandusharud kokku agregeeritud. Kuna eesmärk on Eesti majandusharusid eristada, siis on eeldatud, et komponentharudel on sama eksporditurgude struktuur. Näiteks 01T03 all on koos põllumajandus, metsandus ja kalandus ning seejuures eeldatakse, et nende sihtturgude osatähtsuste jaotused on samad. 
 
-Sihtturgude agregatsioon on selguse huvides jäetud samaks OECD agregatsioonile (36 majandusharu + lõpptarbimine). Selleks, et ekspordi mooduli väljundit projekti muude moodulitega mugavalt siduda, on sisemaiste majandusharude agregatsioon viidud vastavusse projekti teistes moodulites kasutatava agregatsiooniga (kokku 62 majandusharu). Projektis kasutatava agregatsiooni ja OECD agregatsioonivastavused on esitatud allolevas tabeli. Seejuures ridade värv näitab, kas OECD agregatsioon on lahku löödud (sinine), OECD harusid on kokku täiendavalt kokku agregeeritud (roheline) või on kattuv agregatsioon (valge).
+Sihtturgude agregatsioon on selguse huvides jäetud samaks OECD agregatsioonile (36 majandusharu + lõpptarbimine). Selleks, et ekspordi mooduli väljundit projekti muude moodulitega mugavalt siduda, on sisemaiste majandusharude agregatsioon viidud vastavusse projekti teistes moodulites kasutatava agregatsiooniga (kokku 62 majandusharu). Projektis kasutatava agregatsiooni ja OECD agregatsioonivastavused on esitatud allolevas tabelis. Seejuures ridade värv näitab, kas OECD agregatsioon on lahku löödud (sinine), OECD harusid on täiendavalt kokku agregeeritud (roheline) või on kattuv agregatsioon (valge).
 
 ```{r}
 
@@ -166,12 +172,12 @@ origin_industries %>%
 
 Võtmaks arvesse kõige viimaseid saadaolevaid andmeid majandusharude ekspordimahtude osas, kasutatakse Statistikaameti väliskaubanduse andmeid. Andmed laetakse Statistikaameti API vahendusel (vaikimisi 2019. aasta andmed): 
 
- - kaupade ekspordimahud võetakse tabelist https://andmed.stat.ee/api/v1/et/stat/VK02
- - teenuste ekspordimahud võetakse tabelist https://andmed.stat.ee/api/v1/et/stat/VKT10. 
+ - kaupade ekspordimahud võetakse tabelist [VK02](https://andmed.stat.ee/api/v1/et/stat/VK02) [@statistikaametvk02] 
+ - teenuste ekspordimahud võetakse tabelist [VKT10](https://andmed.stat.ee/api/v1/et/stat/VKT10) [@statistikaametvkt10]. 
  
-Koondekspordimahtude saamiseks liidetakse kaupade ja teenuste ekspordimahud majandusharude lõikes kokku. Ekspordimooduli kasutamise käigus on võimalik määrata, kas läbimängitavad stsenaariumid hõlmavad vaid kaupade, teenuste või kaupade ja teenuste eksporti. Vaikimisi vaadeldake kogueksporti, võttes arvesse nii eksporditavate kaupade kui teenuste mahtusid. Vaid kaupade või teenuste analüüsimisel on eeldatud, et sihtturgude struktuur on neil sama kui koguekspordil. 
+Koondekspordimahtude saamiseks liidetakse kaupade ja teenuste ekspordimahud majandusharude lõikes kokku. Ekspordimooduli kasutamise käigus on võimalik määrata, kas läbimängitavad stsenaariumid hõlmavad vaid kaupade, teenuste või kaupade ja teenuste eksporti. Vaikimisi vaadeldakse kogueksporti, võttes arvesse nii eksporditavate kaupade kui teenuste mahtusid. Vaid kaupade või teenuste analüüsimisel on eeldatud, et sihtturgude struktuur on neil sama kui koguekspordil. 
 
-Kuna antud andmestik kajastab aastast ekspordimahtu, siis kuiste simulatsioonide korral jagatakse vastavad väärtused läbi 12-ga. Sellisest lähenemisest tulenevalt ei ole võimalik arvesse võtta ekspordi sessoonsust.
+Kuna antud andmestik kajastab aastast ekspordimahtu, siis kuiste simulatsioonide korral jagatakse vastavad väärtused läbi 12-ga. Sellisest lähenemisest tulenevalt ei ole võimalik arvesse võtta ekspordi sesoonsust.
 
 Saadud väärtusi kasutatakse simulatsioonides nn baastasemetena, mille suhtes hakatakse muutusi vastavalt kasutajapoolsetele sisenditele arvutama.  
 
@@ -211,7 +217,7 @@ find_topK_export_destinations(5, "c") %>%
     formatRound(columns=c('export_share'), digits=5)
 ```
 
-Kasutaja saab sisendfailis lehel *topK* iga majandusharu $k$ kõige olulisema sihtturu (ja lisaks *ROW*) jaoks määrata, mil määral nõudlus suureneb/väheneb. Seejuures veergudena saab käsitleda muutust üle kuude (n-ö aegreana) kui ka tsenaariume eraldiseisvalt.  
+Kasutaja saab sisendfailis lehel *topK* iga majandusharu $k$ kõige olulisema sihtturu (ja lisaks *ROW*) jaoks määrata, mil määral nõudlus suureneb/väheneb. Seejuures veergudena saab käsitleda muutust üle kuude (n-ö aegreana) kui ka stsenaariume eraldiseisvalt.  
 
 >Näide:
 Ligemale 6% põllumajanduse ekspordist müüakse Soome lõpptarbimisse. Kasutaja on määranud, et piirangutest tuleneval on jaanuaris ja veebruaris 2021 antud sihtturg 100% ning märtsis 2021 50% ulatuses ära kukkunud (sisendi tüüp *relative_change* korral). Lisaks on kasutaja eeldanud, et alates aprillist on ekspordimaht saavutanud baastaseme, ning et muudel turgudel baastasemega võrreldes muutusi pole.  
@@ -228,8 +234,8 @@ user_input$topK %>%
 Antud lähenemise korral määratakse, kui palju sihtturgude lõikes nõudlus suureneb/väheneb. Sisestatud muutused kantakse proportsionaalselt üle kõikidele sisemaistele majandusharudele. 
 Sõltuvalt sellest, kas sihtturu detailsuseks on riik või riik-majandusharu, erineb sisendfaili struktuur:
 
-- *riik* korral toimub kõikide sihtriikide muutuste määramine lehel *countries*. Seejuures ridades on riigid ja veergudes kuud (aegrea korral) või tsenaariumid. 
-- *riik-majandusharu* korral on iga riigi jaoks loodud eraldi leht. Igal lehel on ridades majandusharud ja veergudes kuud (aegrea korral) või tsenaariumid.
+- *riik* korral toimub kõikide sihtriikide muutuste määramine lehel *countries*. Seejuures ridades on riigid ja veergudes kuud (aegrea korral) või stsenaariumid. 
+- *riik-majandusharu* korral on iga riigi jaoks loodud eraldi leht. Igal lehel on ridades majandusharud ja veergudes kuud (aegrea korral) või stsenaariumid.
 
 > Näide:
 Kasutaja hinnangute kohaselt väheneb Saksamaa autotööstuse (majandusharu Mootorsõidukite, haagiste ja poolhaagiste tootmine) osakaal baastasemega võrreldes jaanuaris ja veebruaris 2021 10%. Seejuures eeldatakse, et see mõjutab kõigi Eesti majandusharude eksporti Saksamaa autotööstusele samal määral. Selleks sisestab kasutaja sisendfaili lehele *DEU* majandusharu "Mootorsõidukite, haagiste ja poolhaagiste tootmine" jan. ja veb. 2021 väärtusteks -0.1 (sisendi tüüp *relative_change* korral).
@@ -245,10 +251,10 @@ user_input$DEU %>%
 Sisendfaili täitmisel on võimalik sisestada kolme tüüpi väärtuseid:
 
 1. suhtelisi muutuseid (*relative_change*)
-2. aboluutseid muutuseid (*absolute_change*)
+2. absoluutseid muutuseid (*absolute_change*)
 3. absoluuttasemeid (*absolute_level*)
 
-Seejuures peavad sisendid olema sama tüüpi üle sisendfaili, st nii topK kui sihtturu põhiste väärtuste tüübid on samad. Seda, millisele tüübile sisendfail vastab, määrab kasutaja ekpordi mooduli jooksutamisel.
+Seejuures peavad sisendid olema sama tüüpi üle sisendfaili, st nii topK kui sihtturu põhiste väärtuste tüübid on samad. Seda, millisele tüübile sisendfail vastab, määrab kasutaja ekspordi mooduli jooksutamisel.
 
 
 
@@ -270,12 +276,12 @@ Kasutaja poolt sisestatud muutustele vastavalt arvutatakse majandusharude ekspor
 $$\hat{X_{i,t}} = \sum_{j = i}^{N}(1+\Delta x_{i,t}^j) p_{i}^jX_{i,t},$$
 kus 
 
-- $X_{i,t}$ tähistab majandusharu $i$ ekpordi baastaset kuul $t$, 
+- $X_{i,t}$ tähistab majandusharu $i$ ekspordi baastaset kuul $t$, 
 - $p_{i}^j$ tähistab majandusharule $i$ vastava sihtturu $j$ osakaalu
 - $\Delta x_{i,t}^j$ tähistab kasutaja poolt sisestatud majandusharule $i$ vastava sihtturu $j$ ekspordimahu suhtelist muutust kuul $t$,
 - $N$ on sihtturgude arv.
 
-*Märkus: kuud $t$ eristatakse juhul, kui sisendit väljendatakse aegreana. Tsenaariumite korral ajalist mõõdet ei esine. See kehtib ka järgnevate valemite korral.*
+*Märkus: kuud $t$ eristatakse juhul, kui sisendit väljendatakse aegreana. Stsenaariumite korral ajalist mõõdet ei esine. See kehtib ka järgnevate valemite korral.*
 
 ## Absoluutsed muutused
 
@@ -295,7 +301,7 @@ Kasutaja poolt sisestatud muutustele vastavalt arvutatakse majandusharude ekspor
 $$\hat{X_{i,t}} = \sum_{j = i}^{N}p_{i}^jX_{i,t}+\Delta x_{i,t}^j,$$
 kus 
 
-- $X_{i,t}$ tähistab majandusharu $i$ ekpordi baastaset kuul $t$, 
+- $X_{i,t}$ tähistab majandusharu $i$ ekspordi baastaset kuul $t$, 
 - $p_{i}^j$ tähistab majandusharule $i$ vastava sihtturu $j$ osakaalu
 - $\Delta x_{i,t}^j$ tähistab kasutaja poolt sisestatud majandusharule $i$ vastava sihtturu $j$ ekspordimahu absoluutset muutust kuul $t$,
 - $N$ on sihtturgude arv.
@@ -318,20 +324,20 @@ Kasutaja poolt sisestatud muutustele vastavalt arvutatakse majandusharude ekspor
 $$\hat{X_{i,t}} = \sum_{j = i}^{N}\tilde{X_{i,t}^j},$$
 kus 
 
-- $\tilde{X_{i,t}^j}$ tähistab majandusharu $i$ ekpordimahtu sihtturule $j$ kuul $t$, 
+- $\tilde{X_{i,t}^j}$ tähistab majandusharu $i$ ekspordimahtu sihtturule $j$ kuul $t$, 
 - $N$ on sihtturgude arv,
 
 seejuures juhul, kui kasutaja on väärtuse määranud, on $\tilde{X_{i,t}^j}$ võrdne sisestatud väärtusega, vastasel juhul on see imputeeritud baastasemega: $\tilde{X_{i,t}^j} = p_{i}^jX_{i,t}$.
 
 # Väljund
 
-Ekpordi mooduli väljund on laial kujul andmetabel, milles ridades on sisemaised majandusharud ja veergudes kuud aegrea korral või tsenaariumid. Väärtusteks on ekspordi mahu muutuste hinnangud absoluutsummas (eurodes):
+Ekspordi mooduli väljund on laial kujul andmetabel, milles ridades on sisemaised majandusharud ja veergudes kuud aegrea korral või stsenaariumid. Väärtusteks on ekspordi mahu muutuste hinnangud absoluutsummas (eurodes):
 
 $$\Delta_{i,t} = \hat{X_{i,t}} - X_{i,t},$$
 
-- $X_{i,t}$ tähistab majandusharu $i$ ekpordi baastaset kuul $t$, 
-- $\hat{X_{i,t}}$ tähistab majandusharu $i$ simuleeritud eksportdi taset kuul $t$,
-- $\Delta_{i,t}$ tähistab majandusharu $i$ ekspordimahu absoluutssummas muutust kuul $t$ (baastasemega võrreldes).
+- $X_{i,t}$ tähistab majandusharu $i$ ekspordi baastaset kuul $t$, 
+- $\hat{X_{i,t}}$ tähistab majandusharu $i$ simuleeritud ekspordi taset kuul $t$,
+- $\Delta_{i,t}$ tähistab majandusharu $i$ ekspordimahu absoluutsummas muutust kuul $t$ (baastasemega võrreldes).
 
 ## Näide
 
@@ -511,3 +517,6 @@ Lõpptarbimise alla agregeeritakse kokku järgmised OECD andmestikus olevad tunn
 - GFCF	Gross fixed capital formation
 - INVNT	Change in inventories and valuables
 - P33	Direct purchases abroad
+
+# Kasutatud materjalid
+
