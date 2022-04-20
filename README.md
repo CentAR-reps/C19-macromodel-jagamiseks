@@ -184,7 +184,7 @@ source(file.path(model_loc,"9.demand_side_impact_on_employment.R"), encoding = "
 # Käivitame mudeli ja salvestame tulemused objekti "tulemused"
 # Mängime läbi kaks stsenaariumi, mis on kirjeldatud failis "Andmete sisestamise vormi näidis-stsenaariumid.xlsx" (paikneb "4.user_input_examples" kataloogis). Neist esimeses jagatakse kodumajapidamistele 1 mln euro jagu transporditoetusi, teises sama summa restoranide külastamiseks.
 
-tulemused = run(andmed = "./4.user_input_examples/Andmete sisestamise vormi näidis-stsenaariumid.xlsx",
+tulemused = run(andmed = "./4.user_input_examples/Andmete sisestamise vormi näidis-LT liigid.xlsx",
                 intervall = "aasta", 
                 elastsused = "ekspert", 
                 multiplikaatorid = "II", 

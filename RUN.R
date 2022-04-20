@@ -22,7 +22,7 @@ source(file.path(model_loc,"8.impact_on_taxes.R"), encoding = "UTF-8")
 source(file.path(model_loc,"9.demand_side_impact_on_employment.R"), encoding = "UTF-8")
 
 # Jooniste üldiseks kujunduseks kasutame paketi "ggthemr" teemat "fresh" 
-ggthemr('fresh')
+# ggthemr('fresh')
 
 # Käivitame mudeli
 tulemused = run()
